@@ -1,7 +1,7 @@
 ##  Repository for developing code for using deep learning models in RCM emulators
 This repository consists of a collection of Python scripts encapsulating the base functions needed to apply the DeepESD model in the context of RCM emulators. Additionally, it includes a Jupyter Notebook illustrating how to apply those functions.
 
-This repository was forked from [SantanderMetGroup/2024_Bano_Emulators_AIES](https://github.com/SantanderMetGroup/2024_Bano_Emulators_AIES).  The original repository contains the code to reproduce the results from Baño-Medina et al. (2024). This fork aims to continue the code development started there. The code needed to implement the DeepESD model can be found in a Zenodo repository (Baño-Medina et al. 2022a; [https://doi.org/10.5281/zenodo.6828303](https://doi.org/10.5281/zenodo.6828303)) associated to a previous publication (Baño-Medina et al. 2022b).
+This repository is a continuation of [SantanderMetGroup/2024_Bano_Emulators_AIES](https://github.com/SantanderMetGroup/2024_Bano_Emulators_AIES).  The original repository contains the code to reproduce the results from Baño-Medina et al. (2024). This fork aims to continue the code development started there. The code needed to implement the DeepESD model can be found in a Zenodo repository (Baño-Medina et al. 2022a; [https://doi.org/10.5281/zenodo.6828303](https://doi.org/10.5281/zenodo.6828303)) associated to a previous publication (Baño-Medina et al. 2022b).
 
 ### References
 
