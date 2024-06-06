@@ -22,11 +22,11 @@ def bernoulliGamma(true, pred):
 
     return - K.mean(noRainCase + rainCase) # loss output
 
-def rmse(obs, prd, var = 'tas'):
-    rmse_values = np.sqrt(np.square(prd[var].values -  obs[var].values).mean(axis = 0))
-    template = prd[var].mean('time')
-    template.values = rmse_values
-    return template
+# def rmse(obs, prd, var = 'tas'):
+#     rmse_values = np.sqrt(np.square(prd[var].values -  obs[var].values).mean(axis = 0))
+#     template = prd[var].mean('time')
+#     template.values = rmse_values
+#     return template
 
 def biasR01(obs, prd, var, period = None):
     if period == 'winter':
@@ -58,7 +58,7 @@ def biasSDII(obs, prd, var, period = None):
     bias = (prd2_sdii - obs2_sdii) / obs2_sdii
     return bias
 
-def biasP98Wet(obs, prd, var, period = None):
+def biasP98Wet(obs, prd, var , period = None):
     if period == 'winter':
         obs2 = xr.merge([obs.sel(time = obs['time.month'] == z) for z in [1,2,12]])
         prd2 = xr.merge([prd.sel(time = prd['time.month'] == z) for z in [1,2,12]])
@@ -73,20 +73,7 @@ def biasP98Wet(obs, prd, var, period = None):
     bias = (prd2_p98 - obs2_p98) / obs2_p98
     return bias
 
-def bias(obs, prd, var, period = None):
-    if period == 'winter':
-        obs2 = xr.merge([obs.sel(time = obs['time.month'] == z) for z in [1,2,12]])
-        prd2 = xr.merge([prd.sel(time = prd['time.month'] == z) for z in [1,2,12]])
-    if period == 'summer':
-        obs2 = xr.merge([obs.sel(time = obs['time.month'] == z) for z in [6,7,8]])
-        prd2 = xr.merge([prd.sel(time = prd['time.month'] == z) for z in [6,7,8]])
-    if period == None:
-        obs2 = obs
-        prd2 = prd
-    bias_values = np.mean(prd2[var].values, axis = 0) -  np.mean(obs2[var].values, axis = 0)
-    template = prd2[var].mean('time')
-    template.values = bias_values
-    return template
+
 
 
 def loadMask(path,rcm):
@@ -183,47 +170,46 @@ def reshapeToMap(grid, ntime, nlat, nlon, indLand):
 
 def scaleGrid(grid, base = None, ref = None, timeFrame = None, spatialFrame = 'gridbox', type = 'center'):
 
-		if base is None:
-			base = grid
+	if base is None:
+		base = grid
 
-	    ## Selecting the dimension along which the scaling is to be done
-		if spatialFrame == 'gridbox':
-			dimension = 'time'
-		if spatialFrame == 'field':
-			dimension = ['lat', 'lon']
+	## Selecting the dimension along which the scaling is to be done
+	if spatialFrame == 'gridbox':
+		dimension = 'time'
+	if spatialFrame == 'field':
+		dimension = ['lat', 'lon']
 
-	    ## Scaling...
-		if timeFrame is None:
-			if type == 'center':
-				if ref is None:
-					grid = grid - base.mean(dimension)
-				if ref is not None:
-					grid = grid - base.mean(dimension) + ref.mean(dimension)
-			if type == 'standardize':
-				if ref is None:
-					grid = (grid - base.mean(dimension)) / base.std(dimension)
-				if ref is not None:
-					grid = (grid - base.mean(dimension)) / base.std(dimension) * ref.std(dimension) + ref.mean(dimension)
+	## Scaling...
+	if timeFrame is None:
+		if type == 'center':
+			if ref is None:
+				grid = grid - base.mean(dimension)
+			if ref is not None:
+				grid = grid - base.mean(dimension) + ref.mean(dimension)
+		if type == 'standardize':
+			if ref is None:
+				grid = (grid - base.mean(dimension)) / base.std(dimension)
+			if ref is not None:
+				grid = (grid - base.mean(dimension)) / base.std(dimension) * ref.std(dimension) + ref.mean(dimension)
 
-	    ## Scaling with monthly statistics...
-		if timeFrame == 'monthly':
-			baseMonths = base.groupby('time.month')
-			months = baseMonths.groups.keys()
-			if type == 'center':
-				if ref is None:
-					grid = xr.merge([grid.sel(time = grid['time.month'] == z) - baseMonths.mean('time').sel(month = z).drop_vars('month') for z in months])
-				if ref is not None:
-					refMonths = ref.groupby('time.month')
-					grid = xr.merge([grid.sel(time = grid['time.month'] == z) - baseMonths.mean('time').sel(month = z).drop_vars('month') + refMonths.mean('time').sel(month = z).drop_vars('month') for z in months])
-			if type == 'standardize':
-				if ref is None:
-					grid = xr.merge([(grid.sel(time = grid['time.month'] == z) - baseMonths.mean('time').sel(month = z).drop_vars('month')) / baseMonths.std('time').sel(month = z).drop_vars('month') for z in months])
-				if ref is not None:
-					refMonths = ref.groupby('time.month')
-					grid = xr.merge([(grid.sel(time = grid['time.month'] == z) - baseMonths.mean('time').sel(month = z).drop_vars('month')) / baseMonths.std('time').sel(month = z).drop_vars('month') * refMonths.std('time').sel(month = z).drop_vars('month') + refMonths.mean('time').sel(month = z).drop_vars('month') for z in months])
+	## Scaling with monthly statistics...
+	if timeFrame == 'monthly':
+		baseMonths = base.groupby('time.month')
+		months = baseMonths.groups.keys()
+		if type == 'center':
+			if ref is None:
+				grid = xr.merge([grid.sel(time = grid['time.month'] == z) - baseMonths.mean('time').sel(month = z).drop_vars('month') for z in months])
+			if ref is not None:
+				refMonths = ref.groupby('time.month')
+				grid = xr.merge([grid.sel(time = grid['time.month'] == z) - baseMonths.mean('time').sel(month = z).drop_vars('month') + refMonths.mean('time').sel(month = z).drop_vars('month') for z in months])
+		if type == 'standardize':
+			if ref is None:
+				grid = xr.merge([(grid.sel(time = grid['time.month'] == z) - baseMonths.mean('time').sel(month = z).drop_vars('month')) / baseMonths.std('time').sel(month = z).drop_vars('month') for z in months])
+			if ref is not None:
+				refMonths = ref.groupby('time.month')
+				grid = xr.merge([(grid.sel(time = grid['time.month'] == z) - baseMonths.mean('time').sel(month = z).drop_vars('month')) / baseMonths.std('time').sel(month = z).drop_vars('month') * refMonths.std('time').sel(month = z).drop_vars('month') + refMonths.mean('time').sel(month = z).drop_vars('month') for z in months])
 
-		return grid
-
+	return grid
 
 def normalize(grid, base = None):
     if base == None:
@@ -232,3 +218,36 @@ def normalize(grid, base = None):
     m2 = base.min('time')
     grid = (grid - m2) / (m1 - m2)
     return grid
+
+def paths(gcm, rcm, rcp, type = None, t = None, training_dataset = None, BC = None, predictand = None, topology = None, path_predictors = None, path_predictand = None, perfect = None, case = None):
+	if case == 'buildEmulator':
+		if path_predictors is not None and type == 'PP-E':
+			path = f'{path_predictors}{training_dataset}/x_{gcm}-{rcm}_{rcp}_{t}.nc'
+		if path_predictors is not None and type == 'MOS-E':
+			path = f'{path_predictors}{training_dataset}/x_{gcm}_{rcp}_{t}.nc'
+		if path_predictand is not None:
+			path = f'{path_predictand}{predictand}_{gcm}-{rcm}_{rcp}_{t}.nc'
+	if case == 'perfect':
+		path = f'{path_predictors}{training_dataset}/x_{gcm}-{rcm}_{rcp}_{t}.nc'
+	if case == 'gcm':
+		path = f'{path_predictors}{training_dataset}/x_{gcm}_{rcp}_{t}.nc'
+	if case == 'models':
+		path = f'./models/{predictand}/{topology}-{predictand}-{type}-{gcm}-{rcm}-{rcp}.h5'
+	if case == 'predictions' and BC is False and perfect is False:
+		path = f'{path_predictions}{predictand}/{type}_{predictand}_{topology}_alp12_{gcm}-{rcm}_train-{rcp[0]}_test-{rcp[1]}_{t[0]}-{t[1]}.nc'
+	if case == 'predictions' and BC is False and perfect is True:
+		path = f'{path_predictions}{predictand}/{type}-perfect_{predictand}_{topology}_alp12_{gcm}-{rcm}_train-{rcp[0]}_test-{rcp[1]}_{t[0]}-{t[1]}.nc'
+	if case == 'predictions' and BC is True: 
+		path = f'{path_predictions}{predictand}/{type}-BC_{predictand}_{topology}_alp12_{gcm}-{rcm}_train-{rcp[0]}_test-{rcp[1]}_{t[0]}-{t[1]}.nc'
+	return path
+
+def time_comb(time):
+	combinations = []
+	# Loop through decades from the start year to the end year
+	for start_year in range(time[0], time[1] + 1, 10):
+		end_year = min(start_year + 9, time[1])  # Calculate the end year of the decade
+		combination = f"{start_year}-{end_year}"  # Construct the combination string
+		combinations.append(combination)  # Add the combination to the list
+		if end_year == time[1]:
+			break
+	return combinations

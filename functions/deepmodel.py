@@ -6,7 +6,7 @@ def deepmodel(topology, predictand, inputShape, outputShape):
 		l2 = tf.keras.layers.Conv2D(25,[3,3], activation = 'relu', padding = 'same')(l1)
 		l3 = tf.keras.layers.Conv2D(10,[3,3], activation = 'relu', padding = 'same')(l2)
 		l4 = tf.keras.layers.Flatten()(l3)
-		if predictand == 'tas':
+		if predictand == 'tas' or predictand == 'tasmin' or predictand == 'tasmax':
 			l5 = tf.keras.layers.Dense(outputShape)(l4)
 		elif predictand == 'pr':
 			l51 = tf.keras.layers.Dense(outputShape, activation = "sigmoid")(l4)

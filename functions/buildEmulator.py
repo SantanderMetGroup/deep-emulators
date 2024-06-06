@@ -1,33 +1,42 @@
-def buildEmulator(gcm, rcm, predictand, vars, type, topology, years = None, scale = True):
+def buildEmulator(gcm, rcm, rcp, predictand, vars, type, t_train, topology, path_predictors, 
+				  path_predictand, scale = True):
+
+	t_train = time_comb(t_train)
 
 	### Load predictor data (.nc)
 	if type == 'PP-E':
 		training_dataset = 'upscaledrcm'
-		xh = xr.open_dataset('./data/' + training_dataset + '/x_' + gcm + '-' + rcm + '_historical_1996-2005.nc')
-		x85 = xr.open_dataset('./data/' + training_dataset + '/x_' + gcm + '-' + rcm + '_rcp85_2090-2099.nc')
+		files = [paths(gcm, rcm, rcp, type, t, training_dataset, path_predictors = path_predictors, case ='buildEmulator') for t in t_train]
+		[print("Predictor data: ", file) for file in files]
+		x = xr.open_mfdataset(files, combine='nested', concat_dim='time')
+		# same base for all datasets (rcp 45 in 2080-2099)
+		path_base = [f'./data/predictors/{training_dataset}/x_cnrm-ald63_rcp45_{t}.nc' for t in ['2080-2089', '2090-2099']]
+		[print("Predictor data base: ", file) for file in path_base]
+		base = xr.open_mfdataset(path_base, combine='nested', concat_dim='time')
+
 	elif type == 'MOS-E':
 		training_dataset = 'gcm'
-		xh = xr.open_dataset('./data/' + training_dataset + '/x_' + gcm + '_historical_1996-2005.nc')
-		x85 = xr.open_dataset('./data/' + training_dataset + '/x_' + gcm + '_rcp85_2090-2099.nc')
+		files = [paths(gcm, rcm, rcp, type, t, training_dataset, path_predictors = path_predictors, case ='buildEmulator') for t in t_train]
+		[print("Predictor data: ", file) for file in files]
+		x = xr.open_mfdataset(files, combine='nested', concat_dim='time')
+		# same base for all datasets (rcp 45 in 2080-2099)
+		path_base = [f'./data/predictors/{training_dataset}/x_cnrm_rcp45_{t}.nc' for t in ['2080-2089', '2090-2099']]
+		[print("Predictor data base: ", file) for file in path_base]
+		base = xr.open_mfdataset(path_base, combine='nested', concat_dim='time')
 
-	x = xr.concat([xh,x85], dim = 'time')
 	if vars is not None:
 		x = x[vars]
 
-	modelPath = './models/' + predictand + '/' + topology + '-' + gcm + '-' + rcm + '-' + type + '.h5'
-	if years is not None:
-		x  = xr.merge([x.sel(time = x['time.year'] == int(year)) for year in years])
-		modelPath = './models/' + predictand + '/' + topology + '-' + gcm + '-' + rcm + '-' + type + '-year' + str(len(years)) + '.h5'
+	# modelPath = paths(gcm, rcm, rcp, type, predictand= predictand, topology = topology, path_predictors = path_predictors, case ='models')
+	modelPath = f'./models/{predictand}/{topology}-{predictand}-{type}-{gcm}-{rcm}-{rcp}_2010-2029.h5'
+	
 	### Scaling..
-	if scale is True:
-		x = scaleGrid(x, base = x, type = 'standardize', spatialFrame = 'gridbox')
+	if scale:
+		x = scaleGrid(x, base = base, type = 'standardize', spatialFrame = 'gridbox')
 
 	### Loading predictand data (.nc)
-	yh = xr.open_dataset('./data/' + predictand + '/' + predictand + '_' + gcm + '-' + rcm + '_historical_1996-2005.nc')
-	y85 = xr.open_dataset('./data/' + predictand + '/' + predictand + '_' + gcm + '-' + rcm + '_rcp85_2090-2099.nc')
-	y = xr.concat([yh,y85], dim = 'time')
-	if predictand == 'pr':
-		y = binaryGrid(y, condition = 'GE', threshold = 1, partial = True)
+	files = [paths(gcm, rcm, rcp, type, t, training_dataset, predictand = predictand, path_predictand = path_predictand, case ='buildEmulator') for t in t_train]
+	y = xr.open_mfdataset(files, combine='nested', concat_dim='time')
 
 	## Converting xarray to a numpy array
 	ind_time = np.intersect1d(y.time.values, x.time.values)
@@ -37,37 +46,28 @@ def buildEmulator(gcm, rcm, predictand, vars, type, topology, years = None, scal
 
 	outputShape = None
 	### Mask the sea in the deepesd model
-	mask = xr.open_dataset('./data/lsm/lsm_ald63.nc')
+	mask = xr.open_dataset('./data/land_sea_mask/lsm_ald63.nc')
 	if topology == 'deepesd':
 		mask.sftlf.values[mask.sftlf.values == 0] = np.nan
 		mask_Onedim = mask.sftlf.values.reshape((np.prod(mask.sftlf.shape)))
-		ind = [i for i in range(len(mask_Onedim)) if mask_Onedim[i] == 1]
+		ind = [i for i, value in enumerate(mask_Onedim) if value == 1]
 		yTrain = y[predictand].values.reshape((x.dims['time'],np.prod(mask.sftlf.shape)))[:,ind]
-		if predictand == 'pr':
-			yTrain = yTrain - 0.99
-			yTrain[yTrain < 0] = 0
-
 		outputShape = yTrain.shape[1]
-	if topology == 'unet':
-		sea = mask.sftlf.values == 0
-		y[predictand].values[:,sea] = 0
-		yTrain = y[predictand].values
-		outputShape = None
 
 	### Define deep model
 	model = deepmodel(topology = topology,
-	                  predictand = predictand,
-	                  inputShape = x_array.shape[1::],
+					  predictand = predictand,
+					  inputShape = x_array.shape[1::],
 					  outputShape = outputShape)
 
 	### Train the model
-	if predictand == 'tas':
+	if predictand == 'tas' or predictand == 'tasmax' or predictand == 'tasmin':
 		loss = 'mse'
-	elif predictand == 'pr':
-		loss = bernoulliGamma
+
 	model.compile(loss = loss, optimizer = tf.keras.optimizers.Adam(lr = 0.0001))
 	my_callbacks = [
-    	tf.keras.callbacks.EarlyStopping(patience = 30),
-    	tf.keras.callbacks.ModelCheckpoint(filepath = modelPath, monitor = 'val_loss', save_best_only = True)
+		tf.keras.callbacks.EarlyStopping(patience = 30),
+		tf.keras.callbacks.ModelCheckpoint(filepath = modelPath, monitor = 'val_loss', save_best_only = True)
 	]
 	model.fit(x = x_array, y = yTrain, batch_size = 100, epochs = 10000, validation_split = 0.1, callbacks = my_callbacks)
+	print(modelPath)
