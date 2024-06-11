@@ -1,7 +1,10 @@
-def buildEmulator(gcm, rcm, rcp, predictand, vars, type, t_train, topology, path_predictors, 
+def buildEmulator(gcm, rcm, rcp, rcp_std, predictand, vars, type, t_train, t_std, topology, path_predictors, 
 				  path_predictand, scale = True):
-
+	
+	time = t_train
+	## Create the list period strings for the paths to the files
 	t_train = time_comb(t_train)
+	t_std = time_comb(t_std)
 
 	### Load predictor data (.nc)
 	if type == 'PP-E':
@@ -10,7 +13,7 @@ def buildEmulator(gcm, rcm, rcp, predictand, vars, type, t_train, topology, path
 		[print("Predictor data: ", file) for file in files]
 		x = xr.open_mfdataset(files, combine='nested', concat_dim='time')
 		# same base for all datasets (rcp 45 in 2080-2099)
-		path_base = [f'./data/predictors/{training_dataset}/x_cnrm-ald63_rcp45_{t}.nc' for t in ['2080-2089', '2090-2099']]
+		path_base = [f'./data/predictors/{training_dataset}/x_cnrm-ald63_{rcp_std}_{t}.nc' for t in t_std]
 		[print("Predictor data base: ", file) for file in path_base]
 		base = xr.open_mfdataset(path_base, combine='nested', concat_dim='time')
 
@@ -20,7 +23,7 @@ def buildEmulator(gcm, rcm, rcp, predictand, vars, type, t_train, topology, path
 		[print("Predictor data: ", file) for file in files]
 		x = xr.open_mfdataset(files, combine='nested', concat_dim='time')
 		# same base for all datasets (rcp 45 in 2080-2099)
-		path_base = [f'./data/predictors/{training_dataset}/x_cnrm_rcp45_{t}.nc' for t in ['2080-2089', '2090-2099']]
+		path_base = [f'./data/predictors/{training_dataset}/x_cnrm_{rcp_std}_{t}.nc' for t in t_std]
 		[print("Predictor data base: ", file) for file in path_base]
 		base = xr.open_mfdataset(path_base, combine='nested', concat_dim='time')
 
@@ -28,7 +31,7 @@ def buildEmulator(gcm, rcm, rcp, predictand, vars, type, t_train, topology, path
 		x = x[vars]
 
 	# modelPath = paths(gcm, rcm, rcp, type, predictand= predictand, topology = topology, path_predictors = path_predictors, case ='models')
-	modelPath = f'./models/{predictand}/{topology}-{predictand}-{type}-{gcm}-{rcm}-{rcp}_2010-2029.h5'
+	modelPath = f'./models/{predictand}/{topology}-{predictand}-{type}-{gcm}-{rcm}-{rcp}_{time[0]}-{time[0]}.h5'
 	
 	### Scaling..
 	if scale:
