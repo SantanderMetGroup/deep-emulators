@@ -22,12 +22,6 @@ def bernoulliGamma(true, pred):
 
     return - K.mean(noRainCase + rainCase) # loss output
 
-# def rmse(obs, prd, var = 'tas'):
-#     rmse_values = np.sqrt(np.square(prd[var].values -  obs[var].values).mean(axis = 0))
-#     template = prd[var].mean('time')
-#     template.values = rmse_values
-#     return template
-
 def biasR01(obs, prd, var, period = None):
     if period == 'winter':
         obs2 = xr.merge([obs.sel(time = obs['time.month'] == z) for z in [1,2,12]])
