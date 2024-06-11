@@ -1,27 +1,27 @@
-def emulate(gcm, rcm, rcps, topology, vars, path_predictors, type, t_train, t_test, 
+def emulate(gcm, rcm, rcps, rcp_std, topology, vars, path_predictors, type, t_std, t_train, t_test, 
             perfect = False, predictand = "tas", scale = True, bias_correction = False):
     
-
-
-    # create the list period strings for the paths to the files
-    t_train = time_comb(t_train)
-    print(t_train)
-    t_tests = time_comb(t_test)
-    print(t_tests)
     time = t_test
     print(time)
-    # Load predictor base data (use in traning for standardized) for PP-E
+
+    ## Create the list period strings for the paths to the files
+    t_std = time_comb(t_std)
+    print(t_std)
+    t_tests = time_comb(t_test)
+    print(t_tests)
+
+    ## Load predictor base data (use in traning for standardized) for PP-E
     if type == 'PP-E':
         training_dataset = 'upscaledrcm'
-        path_base = [xr.open_dataset(f'./data/predictors/{training_dataset}/x_cnrm-ald63_rcp45_{t}.nc') for t in ['2080-2089', '2090-2099']]
+        path_base = [xr.open_dataset(f'./data/predictors/{training_dataset}/x_cnrm-ald63_{rcp_std}_{t}.nc') for t in t_std]
         base = xr.concat(path_base, dim='time')
-    # Load predictor base data (use in traning for standardized) for MOS-E            
+    ## Load predictor base data (use in traning for standardized) for MOS-E            
     elif type == 'MOS-E':
         training_dataset = 'gcm'
-        path_base = [xr.open_dataset(f'./data/predictors/{training_dataset}/x_cnrm_rcp45_{t}.nc') for t in ['2080-2089', '2090-2099']]
+        path_base = [xr.open_dataset(f'./data/predictors/{training_dataset}/x_cnrm_{rcp_std}_{t}.nc') for t in t_std]
         base = xr.concat(path_base, dim='time')
     
-    for rcp_train in ['rcp85']: # rcp use in train
+    for rcp_train in rcps: # rcp use in train
         for rcp_test in rcps: # rcp use in test
 
             files = [xr.open_dataset(f'./data/predictand/tas/{predictand}_{gcm}-{rcm}_{rcp_test}_{t}.nc') for t in t_tests]
@@ -43,23 +43,19 @@ def emulate(gcm, rcm, rcps, topology, vars, path_predictors, type, t_train, t_te
                 x = x[vars]
                 base = base[vars]
         
-            modelPath = f'./models/{predictand}/{topology}-{predictand}-{type}-{gcm}-{rcm}-{rcp_train}_2010-2029.h5'
+            modelPath = f'./models/{predictand}/{topology}-{predictand}-{type}-{gcm}-{rcm}-{rcp_train}_{t_train[0]}-{t_train[1]}.h5'
             
-            # Bias correction?..
+            ## Bias correction?..
             if bias_correction is True:
                 print('bias correction...')
                 # load base
                 training_dataset = 'gcm'
-                files_base = [xr.open_dataset(f'{path_predictors}{training_dataset}/x_{gcm}_{rcp_test}_{t}.nc') for t in t_test]
+                files_base = [xr.open_dataset(f'{path_predictors}{training_dataset}/x_{gcm}_{rcp_test}_{t}.nc') for t in t_tests]
                 base_gcm = xr.concat(files_base, dim='time')
-                # files_base = [paths(gcm, rcm, rcp_test, t = t, training_dataset = training_dataset, path_predictors = path_predictors, case ='gcm') for t in t_train]
-                # base_gcm = xr.open_mfdataset(files_base, combine='nested', concat_dim='time', chunks = 'auto')
                 # load ref
                 training_dataset = 'upscaledrcm'
-                files_ref = [xr.open_dataset(f'{path_predictors}{training_dataset}/x_{gcm}-{rcm}_{rcp_test}_{t}.nc') for t in t_test]
+                files_ref = [xr.open_dataset(f'{path_predictors}{training_dataset}/x_{gcm}-{rcm}_{rcp_test}_{t}.nc') for t in t_tests]
                 base_ref = xr.concat(files_ref, dim='time')
-                # files_ref = [paths(gcm, rcm, rcp_train, t = t, training_dataset = training_dataset, path_predictors = path_predictors, case ='perfect') for t in t_train]
-                # base_ref = xr.open_mfdataset(files_ref, combine='nested', concat_dim='time', chunks = 'auto')
 
                 if vars is not None:
                     base_gcm = base_gcm[vars]
@@ -89,7 +85,7 @@ def emulate(gcm, rcm, rcps, topology, vars, path_predictors, type, t_train, t_te
                 ind = [i for i in range(len(mask_Onedim)) if mask_Onedim[i] == 1]
                 pred = reshapeToMap(grid = pred, ntime = x.dims['time'], nlat = mask.dims['lat'], nlon = mask.dims['lon'], indLand = ind)
 
-            # template_predictand = xr.open_dataset('./data/templates/template_predictand.nc')
+            ## Create a xarray dataset with the prediction
             pred = xr.Dataset(
             data_vars = {predictand: (['time', 'lat', 'lon'], pred)},
             coords = {'lon': mask.lon.values, 
@@ -98,14 +94,12 @@ def emulate(gcm, rcm, rcps, topology, vars, path_predictors, type, t_train, t_te
             attrs = description
             )
 
-            outputFileName = f'./pred/{predictand}/{type}-perfect_{predictand}_{topology}_alp12_{gcm}-{rcm}_train-{rcp_train}-2010-2029_test-{rcp_test}-{time[0]}-{time[1]}.nc' 
-            print(outputFileName)
+            ## Save the prediction to a netcdf file
+            outputFileName = f'./pred/{predictand}/{type}-BC_{predictand}_{topology}_alp12_{gcm}-{rcm}_train-{rcp_train}-{t_train[0]}-{t_train[1]}_test-{rcp_test}-{time[0]}-{time[1]}.nc' 
             pred.to_netcdf(outputFileName)
+            print(outputFileName)
 
-            # time_range = slice(f'2080-01-01', f'2099-12-31')
-            # bias_values = np.mean(pred['tas'].sel(time=time_range).values, axis = 0) -  np.mean(y['tas'].sel(time=time_range).values, axis = 0)
-            # template = pred['tas'].sel(time=time_range).mean('time')
-            # template.values = bias_values
-            # plt.figure(); template.plot(); plt.savefig(f'./fig/bias_train-{rcp_train}_test-{rcp_test}_PP-E-BC.pdf')
+
+
 
 
