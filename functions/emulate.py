@@ -21,12 +21,20 @@ def emulate(gcm, rcm, rcps, topology, vars, path_predictors, type, t_train, t_te
         path_base = [xr.open_dataset(f'./data/predictors/{training_dataset}/x_cnrm_rcp45_{t}.nc') for t in ['2080-2089', '2090-2099']]
         base = xr.concat(path_base, dim='time')
     
-    for rcp_train in ['rcp85']: # rcp use in train
+    for rcp_train in ['rc if type == 'PP-E' and perfect is True:
+                training_dataset = 'upscaledrcm'
+                ### Load predictor data (.nc)
+                files_x = [xr.open_dataset(f'{path_predictors}{training_dataset}/x_{gcm}-{rcm}_{rcp_test}_{t}.nc') for t in t_tests]
+                x = xr.concat(files_x, dim='time')p85']: # rcp use in train
         for rcp_test in rcps: # rcp use in test
 
             files = [xr.open_dataset(f'./data/predictand/tas/{predictand}_{gcm}-{rcm}_{rcp_test}_{t}.nc') for t in t_tests]
             y = xr.concat(files, dim="time")
-
+ if type == 'PP-E' and perfect is True:
+                training_dataset = 'upscaledrcm'
+                ### Load predictor data (.nc)
+                files_x = [xr.open_dataset(f'{path_predictors}{training_dataset}/x_{gcm}-{rcm}_{rcp_test}_{t}.nc') for t in t_tests]
+                x = xr.concat(files_x, dim='time')
             if type == 'PP-E' and perfect is True:
                 training_dataset = 'upscaledrcm'
                 ### Load predictor data (.nc)
@@ -36,6 +44,7 @@ def emulate(gcm, rcm, rcps, topology, vars, path_predictors, type, t_train, t_te
             else:
                 training_dataset = 'gcm'
                 ### Load predictor data (.nc)
+                training_dataset = 'upscaledrcm'
                 files_x = [xr.open_dataset(f'{path_predictors}{training_dataset}/x_{gcm}_{rcp_test}_{t}.nc') for t in t_tests]
                 x = xr.concat(files_x, dim='time')
 
@@ -50,13 +59,13 @@ def emulate(gcm, rcm, rcps, topology, vars, path_predictors, type, t_train, t_te
                 print('bias correction...')
                 # load base
                 training_dataset = 'gcm'
-                files_base = [xr.open_dataset(f'{path_predictors}{training_dataset}/x_{gcm}_{rcp_test}_{t}.nc') for t in t_train]
+                files_base = [xr.open_dataset(f'{path_predictors}{training_dataset}/x_{gcm}_{rcp_test}_{t}.nc') for t in t_test]
                 base_gcm = xr.concat(files_base, dim='time')
                 # files_base = [paths(gcm, rcm, rcp_test, t = t, training_dataset = training_dataset, path_predictors = path_predictors, case ='gcm') for t in t_train]
                 # base_gcm = xr.open_mfdataset(files_base, combine='nested', concat_dim='time', chunks = 'auto')
                 # load ref
                 training_dataset = 'upscaledrcm'
-                files_ref = [xr.open_dataset(f'{path_predictors}{training_dataset}/x_{gcm}-{rcm}_{rcp_train}_{t}.nc') for t in t_train]
+                files_ref = [xr.open_dataset(f'{path_predictors}{training_dataset}/x_{gcm}-{rcm}_{rcp_test}_{t}.nc') for t in t_test]
                 base_ref = xr.concat(files_ref, dim='time')
                 # files_ref = [paths(gcm, rcm, rcp_train, t = t, training_dataset = training_dataset, path_predictors = path_predictors, case ='perfect') for t in t_train]
                 # base_ref = xr.open_mfdataset(files_ref, combine='nested', concat_dim='time', chunks = 'auto')
