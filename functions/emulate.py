@@ -21,20 +21,12 @@ def emulate(gcm, rcm, rcps, topology, vars, path_predictors, type, t_train, t_te
         path_base = [xr.open_dataset(f'./data/predictors/{training_dataset}/x_cnrm_rcp45_{t}.nc') for t in ['2080-2089', '2090-2099']]
         base = xr.concat(path_base, dim='time')
     
-    for rcp_train in ['rc if type == 'PP-E' and perfect is True:
-                training_dataset = 'upscaledrcm'
-                ### Load predictor data (.nc)
-                files_x = [xr.open_dataset(f'{path_predictors}{training_dataset}/x_{gcm}-{rcm}_{rcp_test}_{t}.nc') for t in t_tests]
-                x = xr.concat(files_x, dim='time')p85']: # rcp use in train
+    for rcp_train in ['rcp85']: # rcp use in train
         for rcp_test in rcps: # rcp use in test
 
             files = [xr.open_dataset(f'./data/predictand/tas/{predictand}_{gcm}-{rcm}_{rcp_test}_{t}.nc') for t in t_tests]
             y = xr.concat(files, dim="time")
- if type == 'PP-E' and perfect is True:
-                training_dataset = 'upscaledrcm'
-                ### Load predictor data (.nc)
-                files_x = [xr.open_dataset(f'{path_predictors}{training_dataset}/x_{gcm}-{rcm}_{rcp_test}_{t}.nc') for t in t_tests]
-                x = xr.concat(files_x, dim='time')
+
             if type == 'PP-E' and perfect is True:
                 training_dataset = 'upscaledrcm'
                 ### Load predictor data (.nc)
@@ -44,7 +36,6 @@ def emulate(gcm, rcm, rcps, topology, vars, path_predictors, type, t_train, t_te
             else:
                 training_dataset = 'gcm'
                 ### Load predictor data (.nc)
-                training_dataset = 'upscaledrcm'
                 files_x = [xr.open_dataset(f'{path_predictors}{training_dataset}/x_{gcm}_{rcp_test}_{t}.nc') for t in t_tests]
                 x = xr.concat(files_x, dim='time')
 
