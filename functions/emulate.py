@@ -24,9 +24,6 @@ def emulate(gcm, rcm, rcps, rcp_std, topology, vars, path_predictors, type, t_st
     for rcp_train in rcps: # rcp use in train
         for rcp_test in rcps: # rcp use in test
 
-            files = [xr.open_dataset(f'./data/predictand/tas/{predictand}_{gcm}-{rcm}_{rcp_test}_{t}.nc') for t in t_tests]
-            y = xr.concat(files, dim="time")
-
             if type == 'PP-E' and perfect is True:
                 training_dataset = 'upscaledrcm'
                 ### Load predictor data (.nc)

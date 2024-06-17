@@ -31,7 +31,7 @@ def buildEmulator(gcm, rcm, rcp, rcp_std, predictand, vars, type, t_train, t_std
 		x = x[vars]
 
 	# modelPath = paths(gcm, rcm, rcp, type, predictand= predictand, topology = topology, path_predictors = path_predictors, case ='models')
-	modelPath = f'./models/{predictand}/{topology}-{predictand}-{type}-{gcm}-{rcm}-{rcp}_{time[0]}-{time[0]}.h5'
+	modelPath = f'./models/{predictand}/{topology}-{predictand}-{type}-{gcm}-{rcm}-{rcp}_{time[0]}-{time[1]}.h5'
 	
 	### Scaling..
 	if scale:
