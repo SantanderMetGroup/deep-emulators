@@ -91,8 +91,15 @@ def emulate(gcm, rcm, rcps, rcp_std, topology, vars, path_predictors, type, t_st
             attrs = description
             )
 
+            if type == 'MOS-E':
+                outputFileName = f'pred/{predictand}/MOS-E_{predictand}_{topology}_alp12_{gcm}-{rcm}_train-{rcp_train}-{t_train[0]}-{t_train[1]}_test-{rcp_test}-{time[0]}-{time[1]}.nc'
+            elif bias_correction and not perfect:
+                outputFileName = f'pred/{predictand}/PP-E-BC_{predictand}_{topology}_alp12_{gcm}-{rcm}_train-{rcp_train}-{t_train[0]}-{t_train[1]}_test-{rcp_test}-{time[0]}-{time[1]}.nc'
+            elif not bias_correction and not perfect:
+                outputFileName = f'pred/{predictand}/PP-E_{predictand}_{topology}_alp12_{gcm}-{rcm}_train-{rcp_train}-{t_train[0]}-{t_train[1]}_test-{rcp_test}-{time[0]}-{time[1]}.nc'
+            elif perfect: 
+                outputFileName = f'pred/{predictand}/PP-E-perfect_{predictand}_{topology}_alp12_{gcm}-{rcm}_train-{rcp_train}-{t_train[0]}-{t_train[1]}_test-{rcp_test}-{time[0]}-{time[1]}.nc'
             ## Save the prediction to a netcdf file
-            outputFileName = f'./pred/{predictand}/{type}-BC_{predictand}_{topology}_alp12_{gcm}-{rcm}_train-{rcp_train}-{t_train[0]}-{t_train[1]}_test-{rcp_test}-{time[0]}-{time[1]}.nc' 
             pred.to_netcdf(outputFileName)
             print(outputFileName)
 
