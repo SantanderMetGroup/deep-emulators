@@ -1,168 +1,169 @@
-def figure6(training_gcm, topology, figsize = (10,40), predictand = 'tas', outputFileName = None):
-    levels = np.linspace(-2, 2, 17)
-    cmap = 'RdBu_r'
-    fig, ax = plt.subplots(6, 2, figsize = figsize, subplot_kw = {'projection': ccrs.PlateCarree()})
-    set1 = set(['noresm', 'mpi', 'cnrm'])
-    set2 = set([training_gcm])
-    gcms = list(set1.difference(set2))
-    for i in range(6):
-        if i == 0 or i == 2 or i == 4:
-            type = 'PP-E'
-        if i == 1 or i == 3 or i == 5:
-            type = 'MOS-E'
-        for j in range(2):
-            if j == 0:
-                grid_obs = xr.open_dataset('../data/predictand/tas_' + gcms[0] + '-ald63_rcp85_2041-2050_v2.nc')    
-                grid_prd = xr.open_dataset('../predictions/hard-trans/' + type + '_' + topology + '_' + predictand + '_alp12_' + 'PREDGCM:' + gcms[0] + '_TRAGCM:' + training_gcm + '_RCM:ald63_rcp85_2041-2050.nc')
-            if j == 1:
-                grid_obs = xr.open_dataset('../data/predictand/tas_' + gcms[1] + '-ald63_rcp85_2041-2050_v2.nc')   
-                grid_prd = xr.open_dataset('../predictions/hard-trans/' + type + '_' + topology + '_' + predictand + '_alp12_' + 'PREDGCM:' + gcms[1] + '_TRAGCM:' + training_gcm + '_RCM:ald63_rcp85_2041-2050.nc')
-            if i == 0 or i == 1:
-                grid = bias(grid_obs, grid_prd, var = 'tas')
-                grid_z = grid
-            if i == 2 or i == 3:
-                grid = bias(grid_obs, grid_prd, period = 'winter', var = 'tas')
-                grid_z = grid
-            if i == 4 or i == 5:
-                grid = bias(grid_obs, grid_prd, period = 'summer', var = 'tas')
-                grid_z = grid
-            ax[i,j].coastlines()
-            fig_ = ax[i,j].contourf(grid.lon,
-                                    grid.lat,
-                                    grid_z,
-                                    levels = levels,
-                                    cmap = cmap,
-                                    extend = 'both',
-                                    transform = ccrs.PlateCarree()
-                                    )
-            fig.colorbar(fig_, ax = ax[i,j])
-    if outputFileName is None:
-    	plt.show()
-    else:
-    	plt.savefig(outputFileName, bbox_inches = 'tight')
+def panel(gcm, rcm, times, t_train, t_test, rcps, path_predictand, predictand, figsize, type, BC = False, perfect=False):
+
+    fig = plt.figure(figsize=figsize)
+    outer_gs = GridSpec(4, 1, figure=fig, hspace=0.2)  # Adjust hspace for spacing between periods
+
+    def create_subplots(gs, fig):
+        inner_gs = GridSpecFromSubplotSpec(2, 11, subplot_spec=gs, wspace=0.1, hspace=0.05, width_ratios=[1, 1, 0.2, 1, 1, 0.2, 1, 1, 0.2, 1, 1])  # Adjust ratios as needed
+        axs = []
+        for i in range(2):  # For each row
+            row = []
+            for j in range(11):  # For each column
+                if j % 3 != 2:  # Skip the padding columns
+                    ax = fig.add_subplot(inner_gs[i, j], projection=ccrs.PlateCarree())
+                    row.append(ax)
+                else:
+                    row.append(None)  # Append None for the padding columns
+            axs.append(row)
+        return axs
+
+    # Create 4 sets of subplots for each metric in each period
+    period1_axs = create_subplots(outer_gs[0], fig)
+    period2_axs = create_subplots(outer_gs[1], fig)
+    period3_axs = create_subplots(outer_gs[2], fig)
+    period4_axs = create_subplots(outer_gs[3], fig)
+
+    periods_axs = [period1_axs, period2_axs, period3_axs, period4_axs]
+    subtitles = ['2010-2029', '2040-2059', '2060-2079', '2080-2099']
+    metrics = ['bias', 'rmse', 'P02', 'P98']
+
+    # Add period subtitles to the middle of each row
+    for i, subtitle in enumerate(subtitles):
+        fig.text(0.10, 0.795 - i * 0.2, subtitle, va='center', ha='center', rotation='vertical', fontsize=12, fontweight='bold')
+
+    # Add titles above each set of columns
+    metric_titles = ['Bias', 'RMSE', 'P02', 'P98']
+    for i, metric_title in enumerate(metric_titles):
+        fig.text(0.21 + i * 0.2, 0.90, metric_title, va='center', ha='center', fontsize=12, fontweight='bold')
+
+    # Add RCP titles above each column set
+    rcp_titles = ['RCP 4.5', 'RCP 8.5']
+    for i in range(2):  # There are two RCPs
+        for j in range(4):  # There are four metrics        
+            fig.text(0.12, 0.84 - j * 0.20 - i * 0.084, rcp_titles[i], va='center', ha='center', rotation='vertical', fontsize=10, fontweight='bold')
+            fig.text(0.175 + j * 0.20 + i * 0.08, 0.88, rcp_titles[i], va='center', ha='center', fontsize=10, fontweight='bold')
+
+    all_contours = []
+
+    if type == 'MOS-E':
+        outputFileName = f'fig/{predictand}/panel_MOS-E_{predictand}_train-{t_train[0]}-{t_train[1]}.pdf'
+    elif BC and not perfect:
+        outputFileName = f'fig/{predictand}/panel_PP-E-BC_{predictand}_train-{t_train[0]}-{t_train[1]}.pdf'
+    elif not BC and not perfect:
+        outputFileName = f'fig/{predictand}/panel_PP-E_{predictand}_train-{t_train[0]}-{t_train[1]}.pdf'
+    else: 
+        raise ValueError('Invalid type specified.')
+    
+    for k, time in enumerate(times):
+        for i, rcp_test in enumerate(rcps):
+            for j, rcp_train in enumerate(rcps):
+                if type == 'MOS-E':
+                    grid_prd = xr.open_dataset(f'./pred/{predictand}/MOS-E_{predictand}_deepesd_alp12_cnrm-ald63_train-{rcp_train}-{t_train[0]}-{t_train[1]}_test-{rcp_test}-{t_test[0]}-{t_test[1]}.nc').sel(time=slice(f'{time[0]}-01-01', f'{time[1]}-12-31'))
+                elif BC and not perfect:
+                    grid_prd = xr.open_dataset(f'./pred/{predictand}/PP-E-BC_{predictand}_deepesd_alp12_cnrm-ald63_train-{rcp_train}-{t_train[0]}-{t_train[1]}_test-{rcp_test}-{t_test[0]}-{t_test[1]}.nc').sel(time=slice(f'{time[0]}-01-01', f'{time[1]}-12-31'))
+                elif not BC and not perfect:
+                    grid_prd = xr.open_dataset(f'./pred/{predictand}/PP-E_{predictand}_deepesd_alp12_cnrm-ald63_train-{rcp_train}-{t_train[0]}-{t_train[1]}_test-{rcp_test}-{t_test[0]}-{t_test[1]}.nc').sel(time=slice(f'{time[0]}-01-01', f'{time[1]}-12-31'))
+                else: 
+                    raise ValueError('Invalid type specified.')
+
+                combinations = time_comb(time)
+                files = [xr.open_dataset(f'{path_predictand}{predictand}/{predictand}_{gcm}-{rcm}_{rcp_test}_{t}.nc') for t in combinations]
+                grid_obs = xr.concat(files, dim='time')
+
+                for m, metric in enumerate(metrics):
+                    grid, grid_z, levels, cmap = metricas(grid_obs, grid_prd, var=predictand, metric=metric)
+                    ax = periods_axs[k][i][j + m * 3]
+                    if ax:  # Only plot if ax is not None (skip padding columns)
+                        ax.coastlines()
+                        fig_ = ax.contourf(grid.lon, grid.lat, grid_z, levels=levels, cmap=cmap, extend='both', transform=ccrs.PlateCarree())
+                        all_contours.append(fig_)
+                plt.savefig(outputFileName)
+
+        print('period done')
+
+    # Add colorbars for each metric
+
+    for i, contour in enumerate(all_contours[:4]):
+        cbar_ax = fig.add_axes([0.132 + i * 0.2, 0.09, 0.160, 0.014])
+        fig.colorbar(contour, orientation='horizontal', cax=cbar_ax)
+
+    plt.savefig(outputFileName)
+    print(outputFileName)
     plt.close()
 
+def panel_perfect(gcm, rcm, times, t_train, t_test, rcps, path_predictand, predictand, figsize):
 
+    fig = plt.figure(figsize=figsize)
+    outer_gs = GridSpec(4, 1, figure=fig, hspace=0.2)  # Adjust hspace for spacing between periods
 
-def figure4(groundtruth, topology, figsize, outputFileName = None, predictand = "tas"):
+    def create_subplots(gs, fig):
+        inner_gs = GridSpecFromSubplotSpec(3, 15, subplot_spec=gs, wspace=0.1, hspace=0.05, width_ratios=[1, 1, 1, 0.2, 1, 1, 1, 0.2, 1, 1, 1, 0.2, 1, 1, 1])  # Adjust ratios as needed
+        axs = []
+        for i in range(3):  # For each row
+            row = []
+            for j in range(15):  # For each column
+                if j % 4 != 3:  # Skip the padding columns
+                    ax = fig.add_subplot(inner_gs[i, j], projection=ccrs.PlateCarree())
+                    row.append(ax)
+                else:
+                    row.append(None)  # Append None for the padding columns
+            axs.append(row)
+        return axs
+
+    # Create 4 sets of subplots for each metric in each period
+    period1_axs = create_subplots(outer_gs[0], fig)
+    period2_axs = create_subplots(outer_gs[1], fig)
+    period3_axs = create_subplots(outer_gs[2], fig)
+    period4_axs = create_subplots(outer_gs[3], fig)
+
+    periods_axs = [period1_axs, period2_axs, period3_axs, period4_axs]
+    subtitles = ['2010-2029', '2040-2059', '2060-2079', '2080-2099']
+    metrics = ['bias', 'rmse', 'P02', 'P98']
+
+    # Add period subtitles to the middle of each row
+    for i, subtitle in enumerate(subtitles):
+        fig.text(0.10, 0.795 - i * 0.20, subtitle, va='center', ha='center', rotation='vertical', fontsize=12, fontweight='bold')
+
+    # Add titles above each set of 3 columns
+    metric_titles = ['Bias', 'RMSE', 'P02', 'P98']
+    for i, metric_title in enumerate(metric_titles):
+        fig.text(0.215 + i * 0.20, 0.90, metric_title, va='center', ha='center', fontsize=12, fontweight='bold')
+
+    # Add RCP titles above each column set
+    rcp_titles = ['RCP 2.6', 'RCP 4.5', 'RCP 8.5']
+    for i in range(3):  # There are three RCPs
+        for j in range(4):  # There are four metrics        
+            fig.text(0.12, 0.85 - j * 0.20 - i * 0.055, rcp_titles[i], va='center', ha='center', rotation='vertical', fontsize=10, fontweight='bold')
+            fig.text(0.155 + j * 0.20 + i * 0.06, 0.88, rcp_titles[i], va='center', ha='center', fontsize=10, fontweight='bold')
+
+    all_contours = []
+
+    outputFileName = f'fig/{predictand}/panel_PP-E-perfect_{predictand}_train-{t_train[0]}-{t_train[1]}.pdf'
+
+    for k, time in enumerate(times):
+        for i, rcp_test in enumerate(rcps):
+            for j, rcp_train in enumerate(rcps):
+                grid_prd = xr.open_dataset(f'./pred/{predictand}/PP-E-BC_{predictand}_deepesd_alp12_cnrm-ald63_train-{rcp_train}-{t_train[0]}-{t_train[1]}_test-{rcp_test}-{t_test[0]}-{t_test[1]}.nc').sel(time=slice(f'{time[0]}-01-01', f'{time[1]}-12-31'))
+                combinations = time_comb(time)
+                files = [xr.open_dataset(f'{path_predictand}{predictand}/{predictand}_{gcm}-{rcm}_{rcp_test}_{t}.nc') for t in combinations]
+                grid_obs = xr.concat(files, dim='time')
+
+                for m, metric in enumerate(metrics):
+                    grid, grid_z, levels, cmap = metricas(grid_obs, grid_prd, var=predictand, metric=metric)
+                    ax = periods_axs[k][i][j + m * 4]
+                    if ax:  # Only plot if ax is not None (skip padding columns)
+                        ax.coastlines()
+                        fig_ = ax.contourf(grid.lon, grid.lat, grid_z, levels=levels, cmap=cmap, extend='both', transform=ccrs.PlateCarree())
+                        all_contours.append(fig_)
+                plt.savefig(outputFileName)
+        print('period done')
+
+    # Add colorbars for each metric
+
+    for i, contour in enumerate(all_contours[:4]):
+        cbar_ax = fig.add_axes([0.135 + i * 0.20, 0.08, 0.160, 0.014])
+        fig.colorbar(contour, orientation='horizontal', cax=cbar_ax)
+
+    plt.savefig(outputFileName)
+    print(outputFileName)
     plt.close()
-    if predictand == 'pr':
-        metrics = ['biasR01', 'biasSDII', 'biasP98Wet', 'rmse']
-    elif predictand == 'tas':
-        metrics = ['bias', 'biasWinter', 'biasSummer', 'rmse']
-
-    fig, ax = plt.subplots(4, 5*len(groundtruth), figsize = figsize, subplot_kw = {'projection': ccrs.PlateCarree()})
-    j = -1
-    for gcm in groundtruth:
-        grid_test = xr.open_dataset('../data/predictand/' + predictand + '_' + gcm + '-ald63_rcp85_2041-2050.nc')
-        grid_base_h = xr.open_dataset('../data/predictand/' + predictand + '_' + gcm + '-ald63_historical_1996-2005.nc')
-        grid_base_f = xr.open_dataset('../data/predictand/' + predictand + '_' + gcm + '-ald63_rcp85_2090-2099.nc')
-        grid_base = xr.concat([grid_base_h,grid_base_f], dim = 'time')
-        for case in range(5):
-            j = j + 1
-            if case == 0:
-                pred_path = '../predictions/soft-trans/MOS-E_' + topology + '_' + predictand + '_alp12_' + gcm + '-ald63_train.nc'
-                grid_obs = grid_base
-            if case == 1:
-                pred_path = '../predictions/soft-trans/PP-E-perfect_' + topology + '_' + predictand + '_alp12_' + gcm + '-ald63_train.nc'
-                grid_obs = grid_base
-            if case == 2:
-                pred_path = '../predictions/soft-trans/MOS-E_' + topology + '_' + predictand + '_alp12_' + gcm + '-ald63_rcp85_2041-2050.nc'
-                #pred_path = '../predictions/soft-trans/PP-E-perfect_' + topology + '_' + predictand + '_alp12_' + gcm + '-ald63_rcp85_2041-2050.nc'
-                grid_obs = grid_test
-            if case == 3:
-                pred_path = '../predictions/soft-trans/PP-E_' + topology + '_' + predictand + '_alp12_' + gcm + '-ald63_rcp85_2041-2050.nc'
-                grid_obs = grid_test
-            if case == 4:
-                pred_path = '../predictions/soft-trans/PP-E-bc_' + topology + '_' + predictand + '_alp12_' + gcm + '-ald63_rcp85_2041-2050.nc'
-                grid_obs = grid_test
-            grid_prd = xr.open_dataset(pred_path)
-            for ind_metric in range(len(metrics)):
-                levels = np.linspace(-0.4, 0.4, 17)
-                if metrics[ind_metric] == 'biasR01':
-                    print("ahora R01")
-                    grid = biasR01(grid_obs, grid_prd, var = 'pr').pr
-                    grid_z = grid
-                    cmap = 'BrBG'
-                if metrics[ind_metric] == 'biasSDII':
-                    print("ahora SDII")
-                    grid = biasSDII(grid_obs, grid_prd, var = 'pr').pr
-                    grid_z = grid
-                    cmap = 'BrBG'
-                if metrics[ind_metric] == 'biasP98Wet':
-                    print("ahora P98Wet")
-                    grid = biasP98Wet(grid_obs, grid_prd, var = 'pr').pr
-                    grid_z = grid
-                    cmap = 'BrBG'
-                if metrics[ind_metric] + '_' + predictand == 'rmse_pr':
-                    print("ahora rmse")
-                    ind_time = np.intersect1d(grid_obs.time.values, grid_prd.time.values)
-                    grid_obs_2 = grid_obs.sel(time = ind_time)
-                    grid_prd_2 = grid_prd.sel(time = ind_time)
-                    grid = rmse(grid_obs_2, grid_prd_2, var = 'pr')
-                    grid_z = grid
-                    levels = np.linspace(2, 10, 17)
-                    cmap = 'Blues'
-                if metrics[ind_metric] + '_' + predictand == 'corr_pr':
-                    print("ahora corr")
-                    ind_time = np.intersect1d(grid_obs.time.values, grid_prd.time.values)
-                    grid_obs_2 = grid_obs.sel(time = ind_time)
-                    grid_prd_2 = grid_prd.sel(time = ind_time)
-                    grid_obs_2_year = grid_obs_2.groupby('time.year').sum('time')
-                    grid_prd_2_year = grid_prd_2.groupby('time.year').sum('time')
-                    grid = xr.corr(grid_obs_2_year.pr, grid_prd_2_year.pr, dim = 'year')
-                    grid_z = grid
-                    levels = np.linspace(0.6, 1, 17)
-                    cmap = 'Blues'
-                if metrics[ind_metric] == 'bias':
-                    grid = bias(grid_obs, grid_prd, var = 'tas')
-                    grid_z = grid
-                    levels = np.linspace(-2, 2, 17)
-                    cmap = 'RdBu_r'
-                if metrics[ind_metric] == 'biasWinter':
-                    grid = bias(grid_obs, grid_prd, var = 'tas', period = 'winter')
-                    grid_z = grid
-                    levels = np.linspace(-2, 2, 17)
-                    cmap = 'RdBu_r'
-                if metrics[ind_metric] == 'biasSummer':
-                    grid = bias(grid_obs, grid_prd, var = 'tas', period = 'summer')
-                    grid_z = grid
-                    levels = np.linspace(-2, 2, 17)
-                    cmap = 'RdBu_r'
-                if metrics[ind_metric] + '_' + predictand == 'rmse_tas':
-                    ind_time = np.intersect1d(grid_obs.time.values, grid_prd.time.values)
-                    grid_obs_2 = grid_obs.sel(time = ind_time)
-                    grid_prd_2 = grid_prd.sel(time = ind_time)
-                    grid = rmse(grid_obs_2, grid_prd_2)
-                    grid_z = grid
-                    levels = np.linspace(0, 4, 17)
-                    cmap = 'Reds'
-                if metrics[ind_metric] + '_' + predictand == 'corr_tas':
-                    ind_time = np.intersect1d(grid_obs.time.values, grid_prd.time.values)
-                    grid_obs_2 = grid_obs.sel(time = ind_time)
-                    grid_prd_2 = grid_prd.sel(time = ind_time)
-                    grid_obs_2_year = grid_obs_2.groupby('time.year').mean('time')
-                    grid_prd_2_year = grid_prd_2.groupby('time.year').mean('time')
-                    grid = xr.corr(grid_obs_2_year.tas, grid_prd_2_year.tas, dim = 'year')
-                    grid_z = grid
-                    levels = np.linspace(0.6, 1, 17)
-                    cmap = 'Reds'
-                ax[ind_metric,j].coastlines()
-                fig_ = ax[ind_metric,j].contourf(grid.lon,
-                                                 grid.lat,
-                                                 grid_z,
-                                                 levels = levels,
-                                                 cmap = cmap,
-                                                 extend = 'both',
-                                                 transform = ccrs.PlateCarree()
-                                                )
-                fig.colorbar(fig_, ax = ax[ind_metric,j])
-    if outputFileName is None:
-    	plt.show()
-    else:
-    	plt.savefig(outputFileName, bbox_inches = 'tight')
-    plt.close()
-
-
-
-
