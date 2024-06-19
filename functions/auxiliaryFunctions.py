@@ -245,3 +245,66 @@ def time_comb(time):
 		if end_year == time[1]:
 			break
 	return combinations
+
+
+def indexes_predicions(gcm, rcm, rcps, predictand, type, topology, t_train, t_test, BC, perfect):
+
+    if predictand == 'tasmin':
+        index = 'TNn'  
+    elif predictand == 'tasmax':
+        index = 'TXx'
+    else:
+        raise ValueError('Predictand not valid')
+    
+    for rcp_test in rcps:
+        for rcp_train in rcps:
+
+            # Loading data
+            if type == 'MOS-E':
+                inputFileName = f'pred/{predictand}/MOS-E_{predictand}_{topology}_alp12_{gcm}-{rcm}_train-{rcp_train}-{t_train[0]}-{t_train[1]}_test-{rcp_test}-{t_test[0]}-{t_test[1]}.nc'
+                outputFileName = f'pred/{index}/MOS-E_{index}_{topology}_alp12_{gcm}-{rcm}_train-{rcp_train}-{t_train[0]}-{t_train[1]}_test-{rcp_test}-{t_test[0]}-{t_test[1]}.nc'
+            elif BC and not perfect:
+                inputFileName = f'pred/{predictand}/PP-E-BC_{predictand}_{topology}_alp12_{gcm}-{rcm}_train-{rcp_train}-{t_train[0]}-{t_train[1]}_test-{rcp_test}-{t_test[0]}-{t_test[1]}.nc'
+                outputFileName = f'pred/{index}/PP-E-BC_{index}_{topology}_alp12_{gcm}-{rcm}_train-{rcp_train}-{t_train[0]}-{t_train[1]}_test-{rcp_test}-{t_test[0]}-{t_test[1]}.nc'
+            elif not BC and not perfect:
+                inputFileName = f'pred/{predictand}/PP-E_{predictand}_{topology}_alp12_{gcm}-{rcm}_train-{rcp_train}-{t_train[0]}-{t_train[1]}_test-{rcp_test}-{t_test[0]}-{t_test[1]}.nc'
+                outputFileName = f'pred/{index}/PP-E_{index}_{topology}_alp12_{gcm}-{rcm}_train-{rcp_train}-{t_train[0]}-{t_train[1]}_test-{rcp_test}-{t_test[0]}-{t_test[1]}.nc'
+            elif perfect: 
+                inputFileName = f'pred/{predictand}/PP-E-perfect_{predictand}_{topology}_alp12_{gcm}-{rcm}_train-{rcp_train}-{t_train[0]}-{t_train[1]}_test-{rcp_test}-{t_test[0]}-{t_test[1]}.nc'
+                outputFileName = f'pred/{index}/PP-E-perfect_{index}_{topology}_alp12_{gcm}-{rcm}_train-{rcp_train}-{t_train[0]}-{t_train[1]}_test-{rcp_test}-{t_test[0]}-{t_test[1]}.nc'
+
+            icclim.index(
+                in_files    = inputFileName,
+                out_file    = outputFileName,
+                slice_mode  = "month",
+                index_name  = index 
+            )
+            print(outputFileName)
+
+
+def indexes_predictand(gcm, rcm, rcps, predictand, t_test):
+    combinations = time_comb(t_test)
+
+    if predictand == 'tasmin':
+        index = 'TNn'  
+    elif predictand == 'tasmax':
+        index = 'TXx'
+    else:
+        raise ValueError('Predictand not valid')
+    
+    path_predictand = f'./data/predictand/'
+
+    for rcp in rcps:
+        for t in combinations:
+
+            # Loading data               
+            inputPredictand  = f'{path_predictand}{predictand}/{predictand}_{gcm}-{rcm}_{rcp}_{t}.nc'
+            outputPredictand = f'{path_predictand}{index}/{index}_{gcm}-{rcm}_{rcp}_{t}.nc'
+
+            icclim.index(
+                in_files    = inputPredictand,
+                out_file    = outputPredictand,
+                slice_mode  = "month",
+                index_name  = index 
+            )
+            print(outputPredictand)
