@@ -112,9 +112,9 @@ def panel(gcm, rcm, times, t_train, t_test, rcps, path_predictand, predictand, f
 
     if type == 'MOS-E':
         outputFileName = f'fig/{predictand}/panel_MOS-E_{predictand}_train-{t_train[0]}-{t_train[1]}.pdf'
-    elif BC and not perfect:
+    elif BC:
         outputFileName = f'fig/{predictand}/panel_PP-E-BC_{predictand}_train-{t_train[0]}-{t_train[1]}.pdf'
-    elif not BC and not perfect:
+    elif BC is False:
         outputFileName = f'fig/{predictand}/panel_PP-E_{predictand}_train-{t_train[0]}-{t_train[1]}.pdf'
     else: 
         raise ValueError('Invalid type specified.')
@@ -124,9 +124,9 @@ def panel(gcm, rcm, times, t_train, t_test, rcps, path_predictand, predictand, f
             for j, rcp_train in enumerate(rcps):
                 if type == 'MOS-E':
                     grid_prd = xr.open_dataset(f'./pred/{predictand}/MOS-E_{predictand}_deepesd_alp12_cnrm-ald63_train-{rcp_train}-{t_train[0]}-{t_train[1]}_test-{rcp_test}-{t_test[0]}-{t_test[1]}.nc').sel(time=slice(f'{time[0]}-01-01', f'{time[1]}-12-31'))
-                elif BC and not perfect:
+                elif BC:
                     grid_prd = xr.open_dataset(f'./pred/{predictand}/PP-E-BC_{predictand}_deepesd_alp12_cnrm-ald63_train-{rcp_train}-{t_train[0]}-{t_train[1]}_test-{rcp_test}-{t_test[0]}-{t_test[1]}.nc').sel(time=slice(f'{time[0]}-01-01', f'{time[1]}-12-31'))
-                elif not BC and not perfect:
+                elif not BC:
                     grid_prd = xr.open_dataset(f'./pred/{predictand}/PP-E_{predictand}_deepesd_alp12_cnrm-ald63_train-{rcp_train}-{t_train[0]}-{t_train[1]}_test-{rcp_test}-{t_test[0]}-{t_test[1]}.nc').sel(time=slice(f'{time[0]}-01-01', f'{time[1]}-12-31'))
                 else: 
                     raise ValueError('Invalid type specified.')
