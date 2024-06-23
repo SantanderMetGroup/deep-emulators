@@ -2,6 +2,7 @@ import numpy as np
 import xarray as xr
 import icclim
 import tensorflow as tf 
+import sys 
 
 def openFiles(path):
 	'''
@@ -11,8 +12,17 @@ def openFiles(path):
 
 	:return: xarray, files
 	'''
-	files = xr.open_mfdataset(path, combine='nested', concat_dim='time')
+	# # files = xr.open_mfdataset(path, combine='nested', concat_dim='time')
+	# files = xr.open_mfdataset(path, combine='nested', concat_dim='time', chunks={'time': 365, 'lat': 107, 'lon': 191}, parallel=True)
+	# print("Opened files from:", path)
+	# sys.stdout.flush()
 
+	# Load files without specifying chunk sizes or with different chunking
+	files = xr.open_mfdataset(path, combine='nested', concat_dim='time', parallel=True)
+    # Rechunk the dataset after loading
+	files = files.chunk({'time': 365, 'lat': 107, 'lon': 191})
+	print("Opened and rechunked files from:", path)
+	sys.stdout.flush()
 	return files
 
 
@@ -26,6 +36,8 @@ def loadMask(path):
     '''
 	mask = xr.open_dataset(path)
 	mask.sftlf.values[mask.sftlf.values == 0] = np.nan
+	print("Loaded mask from:", path)
+	sys.stdout.flush()
 
 	return mask
 
@@ -43,7 +55,8 @@ def scaleGrid(grid, base = None, ref = None, timeFrame = None, spatialFrame = 'g
 
 	:return: xarray, scaled grid
 	'''
-
+	print("Starting scaling...")
+	sys.stdout.flush()
 	if base is None:
 		base = grid
 
@@ -83,6 +96,8 @@ def scaleGrid(grid, base = None, ref = None, timeFrame = None, spatialFrame = 'g
 				refMonths = ref.groupby('time.month')
 				grid = xr.merge([(grid.sel(time = grid['time.month'] == z) - baseMonths.mean('time').sel(month = z).drop_vars('month')) / baseMonths.std('time').sel(month = z).drop_vars('month') * refMonths.std('time').sel(month = z).drop_vars('month') + refMonths.mean('time').sel(month = z).drop_vars('month') for z in months])
 
+	print("Scaling completed")
+	sys.stdout.flush()
 	return grid
 
 
@@ -99,8 +114,9 @@ def applyMask(path, y, x, predictand):
 	mask = loadMask(path)
 	mask_Onedim = mask.sftlf.values.reshape((np.prod(mask.sftlf.shape)))
 	ind = [i for i, value in enumerate(mask_Onedim) if value == 1]
-	yTrain = y[predictand].values.reshape((x.dims['time'],np.prod(mask.sftlf.shape)))[:,ind]
-
+	yTrain = y[predictand].values.reshape((x.sizes['time'],np.prod(mask.sftlf.shape)))[:,ind]
+	print("Applied mask to the data")
+	sys.stdout.flush()
 	return yTrain
 
 def trainModel(x, y, model, modelPath, predictand):
@@ -127,7 +143,7 @@ def trainModel(x, y, model, modelPath, predictand):
 	]
 	model.fit(x = x, y = y, batch_size = 100, epochs = 10000, validation_split = 0.1, callbacks = my_callbacks)
 	print(f'Model trained and save in: {modelPath}')
-
+	sys.stdout.flush()
 
 def time_comb(time):
 	combinations = []

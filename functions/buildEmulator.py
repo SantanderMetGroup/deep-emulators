@@ -1,6 +1,7 @@
 from auxiliaryFunctions import applyMask, openFiles, scaleGrid, trainModel
 from deepmodel import deepmodel
 import numpy as np
+import sys
 
 def buildEmulator(predictorsPath, basePath, predictandPath, modelPath, maskPath, topology, predictand,vars, scale = True):
 	'''
@@ -18,11 +19,15 @@ def buildEmulator(predictorsPath, basePath, predictandPath, modelPath, maskPath,
 
 	## Open the predictors data (.nc)
 	x = openFiles(predictorsPath)
+	
 	if vars is not None:
 		x = x[vars]
 	
 	## Scaling..
 	if scale:
+		print("Scaling data...")
+		sys.stdout.flush()
+
 		base = openFiles(basePath)
 		x = scaleGrid(x, base = base, type = 'standardize', spatialFrame = 'gridbox')
 
