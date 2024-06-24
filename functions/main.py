@@ -1,7 +1,6 @@
 from buildEmulator import buildEmulator
 
 # Variables to be used in the emulator
-
 vars = ['zg500', 'zg700',
         'hus500', 'hus700', 'hus850',
         'ua500', 'ua700', 'ua850',
@@ -11,15 +10,20 @@ vars = ['zg500', 'zg700',
 predictand = 'tas'
 gcm = 'cnrm'
 rcm = 'ald63'
-rcp = 'rcp26'
+topology = 'deepesd'
+aprox = 'PP-E'
+
 predictorsUpscaledPath = '../../data/predictors/upscaledrcm/'
 predictorsGCMPath = '../../data/predictors/gcm/'
 predictandRootPath = f'../../data/predictand/{predictand}/'
 modelRootPath = '../../m/'
-aprox = 'PP-E'
+
+rcp_std = 'rcp45'
+rcp_train = 'rcp26'
+
 t_train = [2010, 2029]
 t_base = [2010, 2019]
-topology = 'deepesd'
+
 # Auxiliar funtions to generate the paths of the files
 
 def timeCombinations(time):
@@ -62,7 +66,7 @@ def filePaths(time, path, rcp):
             paths.append(f'{path}{predictand}_{gcm}-{rcm}_{rcp}_{period}.nc')
     return paths
 
-def modelPaths(path, rcp, time, predictand, aprox,gcm, rcm):
+def modelPaths(path, rcp, time, predictand, aprox, gcm, rcm):
     '''
     Generate the path of the model
     
@@ -72,21 +76,24 @@ def modelPaths(path, rcp, time, predictand, aprox,gcm, rcm):
     
     :return: str, path of the model
     '''
-    
+
     return f'{path}deepesd-{predictand}-{aprox}-{gcm}-{rcm}-{rcp}_{time[0]}-{time[1]}.h5'
-    
-predictorsPath = filePaths(t_train, predictorsUpscaledPath, 'rcp26')
-basePath = filePaths(t_base, predictorsGCMPath, 'rcp45')
-predictandPath = filePaths(t_train, predictandRootPath, 'rcp26')
-modelPath = modelPaths(modelRootPath, 'rcp26', t_train, predictand, aprox, gcm, rcm)
+
+# Generate the paths of the files    
+predictorsPath = filePaths(t_train, predictorsUpscaledPath, rcp_train)
+basePath = filePaths(t_base, predictorsGCMPath, rcp_train)
+predictandPath = filePaths(t_train, predictandRootPath, rcp_train)
+modelPath = modelPaths(modelRootPath, rcp_train, t_train, predictand, aprox, gcm, rcm)
 maskPath = '../../data/land_sea_mask/lsm_ald63.nc'
+
+# Build the emulator
 buildEmulator(predictorsPath = predictorsPath,
-                basePath = basePath,
-                predictandPath = predictandPath,
-                modelPath = modelPath,
-                maskPath = maskPath,
-                topology = topology,
-                predictand = predictand,
-                vars = vars,
-                scale = True)
+              basePath = basePath,
+              predictandPath = predictandPath,
+              modelPath = modelPath,
+              maskPath = maskPath,
+              topology = topology,
+              predictand = predictand,
+              vars = vars,
+              scale = True)
 

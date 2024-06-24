@@ -3,6 +3,8 @@ import xarray as xr
 import icclim
 import tensorflow as tf 
 import sys 
+import time
+import os
 
 def openFiles(path):
 	'''
@@ -119,6 +121,20 @@ def applyMask(path, y, x, predictand):
 	sys.stdout.flush()
 	return yTrain
 
+def saveTrainingTime(savePath, modelPath, elapsed_time):
+    '''
+    Save the training time to a file
+
+    :param modelPath: str, path of the trained model
+    :param elapsed_time: float, time taken to train the model in seconds
+
+    :return: None
+    '''
+    training_log_path = savePath  # Specify your log file name/path
+    with open(training_log_path, 'a') as file:
+        file.write(f'Model: {modelPath}, Training Time: {elapsed_time:.2f} seconds, Date: {time.strftime("%Y-%m-%d %H:%M:%S")}\n')
+
+
 def trainModel(x, y, model, modelPath, predictand):
 	'''
 	Train the model
@@ -131,8 +147,10 @@ def trainModel(x, y, model, modelPath, predictand):
 
 	:return: None
 	'''
+    # Record the start time
+	start_time = time.time()
 
-	## Train the model
+	# Train the model
 	if predictand == 'tas' or predictand == 'tasmax' or predictand == 'tasmin':
 		loss = 'mse'
 
@@ -142,20 +160,14 @@ def trainModel(x, y, model, modelPath, predictand):
 		tf.keras.callbacks.ModelCheckpoint(filepath = modelPath, monitor = 'val_loss', save_best_only = True)
 	]
 	model.fit(x = x, y = y, batch_size = 100, epochs = 10000, validation_split = 0.1, callbacks = my_callbacks)
+    # Calculate the elapsed time
+	elapsed_time = time.time() - start_time
+
 	print(f'Model trained and save in: {modelPath}')
 	sys.stdout.flush()
 
-def time_comb(time):
-	combinations = []
-	# Loop through decades from the start year to the end year
-	for start_year in range(time[0], time[1] + 1, 10):
-		end_year = min(start_year + 9, time[1])  # Calculate the end year of the decade
-		combination = f"{start_year}-{end_year}"  # Construct the combination string
-		combinations.append(combination)  # Add the combination to the list
-		if end_year == time[1]:
-			break
-	return combinations
-
+	# Save the training time using the new function
+	saveTrainingTime(modelPath, elapsed_time)
 
 def indexes_predicions(gcm, rcm, rcps, predictand, type, topology, t_train, t_test, BC, perfect):
 

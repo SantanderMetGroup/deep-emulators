@@ -15,6 +15,8 @@ def buildEmulator(predictorsPath, basePath, predictandPath, modelPath, maskPath,
 	:param topology: str, topology of the model
 	:param predictand: str, predictand
 	:param scale: boolean, scale the data
+
+	:return: None
 	'''
 
 	## Open the predictors data (.nc)
@@ -54,7 +56,7 @@ def buildEmulator(predictorsPath, basePath, predictandPath, modelPath, maskPath,
 
 	## Train the model
 	trainModel(x = x_array, 
-			y = yTrain, 
-			model = model, 
-			modelPath= modelPath, 
-			predictand = predictand)
+			   y = yTrain, 
+			   model = model, 
+			   modelPath = modelPath, 
+			   predictand = predictand)
