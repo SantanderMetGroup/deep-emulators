@@ -3,7 +3,8 @@ from deepmodel import deepmodel
 import numpy as np
 import sys
 
-def buildEmulator(predictorsPath, basePath, predictandPath, modelPath, maskPath, topology, predictand,vars, scale = True):
+def buildEmulator(predictorsPath, basePath, predictandPath, modelPath, 
+				  maskPath, topology, predictand, vars, scale = True):
 	'''
 	Build the emulator
 
@@ -45,7 +46,7 @@ def buildEmulator(predictorsPath, basePath, predictandPath, modelPath, maskPath,
 	x_array = x.to_stacked_array("var", sample_dims = ["lon", "lat", "time"]).values
 
 	## Mask the sea in the deepesd model
-	yTrain = applyMask(maskPath, y, x, predictand)
+	yTrain = applyMask(maskPath, y, x, predictand, 'buildEmulator')
 	outputShape = yTrain.shape[1]
 
 	## Define deep model

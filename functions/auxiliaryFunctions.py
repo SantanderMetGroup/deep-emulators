@@ -98,12 +98,12 @@ def scaleGrid(grid, base = None, ref = None, timeFrame = None, spatialFrame = 'g
 				refMonths = ref.groupby('time.month')
 				grid = xr.merge([(grid.sel(time = grid['time.month'] == z) - baseMonths.mean('time').sel(month = z).drop_vars('month')) / baseMonths.std('time').sel(month = z).drop_vars('month') * refMonths.std('time').sel(month = z).drop_vars('month') + refMonths.mean('time').sel(month = z).drop_vars('month') for z in months])
 
-	print("Scaling completed")
+	print("Completed")
 	sys.stdout.flush()
 	return grid
 
 
-def applyMask(path, y, x, predictand):
+def applyMask(path, y, x, predictand, case):
 	'''
 	Apply the mask to the given grid
 
@@ -116,10 +116,37 @@ def applyMask(path, y, x, predictand):
 	mask = loadMask(path)
 	mask_Onedim = mask.sftlf.values.reshape((np.prod(mask.sftlf.shape)))
 	ind = [i for i, value in enumerate(mask_Onedim) if value == 1]
-	yTrain = y[predictand].values.reshape((x.sizes['time'],np.prod(mask.sftlf.shape)))[:,ind]
+	if case == 'emulate':
+		y_reshaped = reshapeToMap(grid = y, ntime = x.dims['time'], nlat = mask.dims['lat'], nlon = mask.dims['lon'], indLand = ind)
+	elif case == 'buildEmulator':	
+		y_reshaped = y[predictand].values.reshape((x.sizes['time'],np.prod(mask.sftlf.shape)))[:,ind]
 	print("Applied mask to the data")
 	sys.stdout.flush()
-	return yTrain
+	return y_reshaped
+
+def reshapeToMap(grid, ntime, nlat, nlon, indLand):
+	'''
+	Reshape the grid to a latitude-longitude grid
+
+	:param grid: numpy, grid to be reshaped
+	:param ntime: int, number of time steps
+	:param nlat: int, number of latitude points
+	:param nlon: int, number of longitude points
+	:param indLand: list, indices of the land points
+
+	:return: numpy, reshaped grid
+	'''
+	if len(grid.shape) == 2:
+		grid = np.expand_dims(grid, axis = 2)
+		vars = 1
+	InnerList=[]
+	for i in range(grid.shape[2]):
+		p = np.full((ntime,nlat*nlon), np.nan)
+		p[:,indLand] = grid[:,:,i]
+		p = p.reshape((ntime,nlat,nlon,1))
+		InnerList.append(p)
+	grid = np.concatenate(InnerList, axis = 3)
+	return grid.squeeze()
 
 def saveTrainingTime(savePath, modelPath, elapsed_time):
     '''
@@ -169,6 +196,50 @@ def trainModel(x, y, model, modelPath, predictand):
 	# Save the training time using the new function
 	saveTrainingTime(modelPath, elapsed_time)
 
+def biasCorrection(x, baseGCMPath, baseRefPath, vars = None):
+	'''
+	Bias correction
+
+	:param x: xarray, data to be bias corrected
+	:param baseGCMPath: str, path to the base GCM data (train period and rcp)
+	:param baseRefPath: str, path to the base UpscaledRCM data (train period and rcp)
+	:param vars: list, variables to be bias corrected
+	
+	:return: xarray, bias corrected data
+	'''
+
+	baseGCM = openFiles(baseGCMPath)
+	baseRef = openFiles(baseRefPath)
+
+	if vars is not None:
+		baseGCM = baseGCM[vars]
+		baseRef = baseRef[vars]
+	
+	return scaleGrid(x, base = baseGCM, ref = baseRef, type = 'center', timeFrame = 'monthly', spatialFrame = 'gridbox')
+
+def createDataset(pred, x, description, predictand, maskPath):
+	'''
+	Create a xarray dataset with the prediction
+
+	:param pred: numpy, prediction
+	:param x: xarray, predictors
+	:param description: str, description of the prediction
+	:param predictand: str, predictand
+
+	:return: xarray, prediction
+	'''
+
+	mask = loadMask(maskPath)
+	
+	pred = xr.Dataset(
+    data_vars = {predictand: (['time', 'lat', 'lon'], pred)},
+    coords = {'lon': mask.lon.values, 
+                'lat': mask.lat.values, 
+                'time': x.time.values},
+    attrs = {'description': f'{description}'}
+    )
+	return pred	
+
 def indexes_predicions(gcm, rcm, rcps, predictand, type, topology, t_train, t_test, BC, perfect):
 
     if predictand == 'tasmin':
@@ -204,29 +275,29 @@ def indexes_predicions(gcm, rcm, rcps, predictand, type, topology, t_train, t_te
             print(outputFileName)
 
 
-def indexes_predictand(gcm, rcm, rcps, predictand, t_test):
-    combinations = time_comb(t_test)
+# def indexes_predictand(gcm, rcm, rcps, predictand, t_test):
+#     combinations = time_comb(t_test)
 
-    if predictand == 'tasmin':
-        index = 'TNn'  
-    elif predictand == 'tasmax':
-        index = 'TXx'
-    else:
-        raise ValueError('Predictand not valid')
+#     if predictand == 'tasmin':
+#         index = 'TNn'  
+#     elif predictand == 'tasmax':
+#         index = 'TXx'
+#     else:
+#         raise ValueError('Predictand not valid')
     
-    path_predictand = f'./data/predictand/'
+#     path_predictand = f'./data/predictand/'
 
-    for rcp in rcps:
-        for t in combinations:
+#     for rcp in rcps:
+#         for t in combinations:
 
-            # Loading data               
-            inputPredictand  = f'{path_predictand}{predictand}/{predictand}_{gcm}-{rcm}_{rcp}_{t}.nc'
-            outputPredictand = f'{path_predictand}{index}/{index}_{gcm}-{rcm}_{rcp}_{t}.nc'
+#             # Loading data               
+#             inputPredictand  = f'{path_predictand}{predictand}/{predictand}_{gcm}-{rcm}_{rcp}_{t}.nc'
+#             outputPredictand = f'{path_predictand}{index}/{index}_{gcm}-{rcm}_{rcp}_{t}.nc'
 
-            icclim.index(
-                in_files    = inputPredictand,
-                out_file    = outputPredictand,
-                slice_mode  = "month",
-                index_name  = index 
-            )
-            print(outputPredictand)
+#             icclim.index(
+#                 in_files    = inputPredictand,
+#                 out_file    = outputPredictand,
+#                 slice_mode  = "month",
+#                 index_name  = index 
+#             )
+#             print(outputPredictand)
