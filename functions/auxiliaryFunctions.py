@@ -181,7 +181,7 @@ def trainModel(x, y, model, modelPath, predictand):
 	if predictand == 'tas' or predictand == 'tasmax' or predictand == 'tasmin':
 		loss = 'mse'
 
-	model.compile(loss = loss, optimizer = tf.keras.optimizers.Adam(lr = 0.0001))
+	model.compile(loss = loss, optimizer = tf.keras.optimizers.Adam(learning_rate = 0.0001))
 	my_callbacks = [
 		tf.keras.callbacks.EarlyStopping(patience = 30),
 		tf.keras.callbacks.ModelCheckpoint(filepath = modelPath, monitor = 'val_loss', save_best_only = True)
@@ -193,8 +193,9 @@ def trainModel(x, y, model, modelPath, predictand):
 	print(f'Model trained and save in: {modelPath}')
 	sys.stdout.flush()
 
+	savePath = './training_time.txt'
 	# Save the training time using the new function
-	saveTrainingTime(modelPath, elapsed_time)
+	saveTrainingTime(savePath, modelPath, elapsed_time)
 
 def biasCorrection(x, baseGCMPath, baseRefPath, vars = None):
 	'''

@@ -25,7 +25,6 @@ def emulate(predictionPath, predictorsPath, basePath, modelPath, maskPath, descr
 
     if vars is not None:
         x = x[vars]
-        base = base[vars]
                 
     ## Bias correction?..
     if BC:
@@ -42,7 +41,7 @@ def emulate(predictionPath, predictorsPath, basePath, modelPath, maskPath, descr
         if vars is not None:
             base = base[vars]
         x = scaleGrid(x, base = base, type = 'standardize', spatialFrame = 'gridbox')
-
+        
     model = tf.keras.models.load_model(modelPath) 
 
     ## Converting xarray to a numpy array and predict on the test set
@@ -52,7 +51,7 @@ def emulate(predictionPath, predictorsPath, basePath, modelPath, maskPath, descr
     pred = applyMask(maskPath, pred, x, predictand, 'emulate')
 
     ## Create a xarray dataset with the prediction
-    pred = createDataset(pred, x, description, predictand)
+    pred = createDataset(pred, x, description, predictand, maskPath)
 
     ## Save the prediction to a netcdf file
     pred.to_netcdf(predictionPath)

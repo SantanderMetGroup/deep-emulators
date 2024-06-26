@@ -2,13 +2,13 @@ from buildEmulator import buildEmulator
 from emulate import emulate
 import sys
 
-# Variables to be used in the emulator
+## Variables
+# General variables
 vars = ['zg500', 'zg700',
         'hus500', 'hus700', 'hus850',
         'ua500', 'ua700', 'ua850',
         'va500', 'va700', 'va850',
         'ta500', 'ta700', 'ta850']
-
 predictand = 'tas'
 gcm = 'cnrm'
 rcm = 'ald63'
@@ -22,10 +22,10 @@ modelPath = '../../m/'
 predictionPath = '../../p/'
 
 rcp_std = 'rcp45'
-rcp_train = 'rcp26'
+rcp_train = 'rcp45'
 
-t_train = [2010, 2029]
-t_base = [2010, 2019]
+t_train = [2080, 2099]
+t_base = [2080, 2099]
 
 # Auxiliar funtions to generate the paths of the files
 
@@ -129,17 +129,17 @@ def descriptions(predictand):
         sys.stdout.flush()
 
 # Generate the paths of the files    
-predictorsFile = filePaths(t_train, predictorsUpscaledPath, rcp_train)
-baseFile = filePaths(t_base, predictorsGCMPath, rcp_train)
-predictandPath = filePaths(t_train, predictandPath, rcp_train)
+predictorsFileTrain = filePaths(t_train, predictorsUpscaledPath, rcp_train)
+baseFile = filePaths(t_base, predictorsUpscaledPath, rcp_std)
+predictandFile = filePaths(t_train, predictandPath, rcp_train)
 modelFile = modelPaths(modelPath, rcp_train, t_train, predictand, aprox, gcm, rcm)
 maskFile = '../../data/land_sea_mask/lsm_ald63.nc'
 
 # Build the emulator
-buildEmulator(predictorsPath = predictorsFile,
+buildEmulator(predictorsPath = predictorsFileTrain,
               basePath = baseFile,
-              predictandPath = predictandPath,
-              modelPath = modelPath,
+              predictandPath = predictandFile,
+              modelPath = modelFile,
               maskPath = maskFile,
               topology = topology,
               predictand = predictand,
@@ -151,6 +151,7 @@ rcp_test = 'rcp85'
 t_test = [2010, 2099]
 BiasCorrection = False
 perfect = False
+predictorsFileTest = filePaths(t_test, predictorsGCMPath, rcp_test)
 
 predictionFile = predictionPaths(predictionPath, rcp_train, rcp_test, t_train, t_test, predictand, aprox, gcm, rcm, BiasCorrection, perfect)
 description = descriptions(predictand)
@@ -158,5 +159,34 @@ description = descriptions(predictand)
 baseGCMPath = filePaths(t_test, predictorsGCMPath, rcp_test)
 baseRefPath = filePaths(t_test, predictorsUpscaledPath, rcp_test)
 
-emulate(predictionFile, predictorsFile, baseFile, modelFile, maskFile, description,
+emulate(predictionFile, predictorsFileTest, baseFile, modelFile, maskFile, description,
         predictand, vars, scale = True, BC = False, baseGCMPath = None, baseRefPath = None)
+
+
+from auxiliaryFunctions import openFiles 
+import numpy as np
+import matplotlib.pyplot as plt
+
+predPath = '../../p/PP-E_tas_deepesd_alp12_cnrm-ald63_train-rcp45-2080-2099_test-rcp85-2010-2099.nc'
+predPathOG = '../../pred/tas/PP-E_tas_deepesd_alp12_cnrm-ald63_train-rcp45-2080-2099_test-rcp85-2010-2099.nc'
+
+pred = openFiles(predPath)
+predOG = openFiles(predPathOG)
+
+tasPath = ['../../data/predictand/tas/tas_cnrm-ald63_rcp85_2010-2019.nc', 
+           '../../data/predictand/tas/tas_cnrm-ald63_rcp85_2020-2029.nc']
+tas = openFiles(tasPath).sel(time = slice('2010', '2029'))
+
+
+pred = pred.sel(time = slice('2010', '2029'))
+predOG = predOG.sel(time = slice('2010', '2029'))
+
+bias1 = np.mean(pred['tas'].values, axis = 0) - np.mean(tas['tas'].values, axis = 0)
+template = pred['tas'].mean('time')
+template.values = bias1
+plt.figure(); template.plot(vmin=-2, vmax=2,cmap = 'RdBu_r'); plt.savefig('./check2.png')   
+
+bias2 = np.mean(predOG['tas'].values, axis = 0) - np.mean(tas['tas'].values, axis = 0)
+templateReal = predOG['tas'].mean('time')
+templateReal.values = bias2
+plt.figure(); templateReal.plot(vmin=-2, vmax=2,cmap = 'RdBu_r'); plt.savefig('./checkReal2.png')
