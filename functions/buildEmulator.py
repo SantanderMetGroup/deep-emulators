@@ -21,17 +21,14 @@ def buildEmulator(predictorsPath, basePath, predictandPath, modelPath,
 	'''
 
 	## Open the predictors data (.nc)
-	x = openFiles(predictorsPath)
-	
-	if vars is not None:
-		x = x[vars]
+	x = openFiles(predictorsPath, vars)
 	
 	## Scaling..
 	if scale:
 		print("Scaling data...")
 		sys.stdout.flush()
 
-		base = openFiles(basePath)
+		base = openFiles(basePath, vars)
 		x = scaleGrid(x, base = base, type = 'standardize', spatialFrame = 'gridbox')
 
 	## Open the predictand data (.nc)

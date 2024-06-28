@@ -21,10 +21,7 @@ def emulate(predictionPath, predictorsPath, basePath, modelPath, maskPath, descr
 
     :return: None
     '''
-    x = openFiles(predictorsPath)
-
-    if vars is not None:
-        x = x[vars]
+    x = openFiles(predictorsPath, vars)
                 
     ## Bias correction?..
     if BC:
@@ -37,9 +34,8 @@ def emulate(predictionPath, predictorsPath, basePath, modelPath, maskPath, descr
         print("Scaling data...")
         sys.stdout.flush()
 
-        base = openFiles(basePath)
-        if vars is not None:
-            base = base[vars]
+        base = openFiles(basePath, vars)
+
         x = scaleGrid(x, base = base, type = 'standardize', spatialFrame = 'gridbox')
         
     model = tf.keras.models.load_model(modelPath) 
@@ -58,7 +54,11 @@ def emulate(predictionPath, predictorsPath, basePath, modelPath, maskPath, descr
     print(predictionPath)
     sys.stdout.flush()
 
+# 9]: ds = pred.to_netcdf(predictionFile, compute = False)
 
+# In [40]: with ProgressBar():
+#     ...:     results = ds.compute()
+#     ...: 
 
 
 

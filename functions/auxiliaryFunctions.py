@@ -6,24 +6,21 @@ import sys
 import time
 import os
 
-def openFiles(path):
+def openFiles(path, vars = None):
 	'''
 	Open the files in the given path
 
 	:param path: str, path to the files
+	:param vars: list, variables to be opened
 
 	:return: xarray, files
 	'''
-	# # files = xr.open_mfdataset(path, combine='nested', concat_dim='time')
-	# files = xr.open_mfdataset(path, combine='nested', concat_dim='time', chunks={'time': 365, 'lat': 107, 'lon': 191}, parallel=True)
-	# print("Opened files from:", path)
-	# sys.stdout.flush()
-
-	# Load files without specifying chunk sizes or with different chunking
-	files = xr.open_mfdataset(path, combine='nested', concat_dim='time', parallel=True)
-    # Rechunk the dataset after loading
-	files = files.chunk({'time': 365, 'lat': 107, 'lon': 191})
-	print("Opened and rechunked files from:", path)
+	
+	files = xr.open_mfdataset(path, combine = "nested", concat_dim = "time", chunks = "auto")
+	if vars is not None:
+		files = files[vars]
+	print("Files opened and from:")
+	[print(f) for f in path]
 	sys.stdout.flush()
 	return files
 
@@ -117,7 +114,7 @@ def applyMask(path, y, x, predictand, case):
 	mask_Onedim = mask.sftlf.values.reshape((np.prod(mask.sftlf.shape)))
 	ind = [i for i, value in enumerate(mask_Onedim) if value == 1]
 	if case == 'emulate':
-		y_reshaped = reshapeToMap(grid = y, ntime = x.dims['time'], nlat = mask.dims['lat'], nlon = mask.dims['lon'], indLand = ind)
+		y_reshaped = reshapeToMap(grid = y, ntime = x.sizes['time'], nlat = mask.sizes['lat'], nlon = mask.sizes['lon'], indLand = ind)
 	elif case == 'buildEmulator':	
 		y_reshaped = y[predictand].values.reshape((x.sizes['time'],np.prod(mask.sftlf.shape)))[:,ind]
 	print("Applied mask to the data")
@@ -209,12 +206,8 @@ def biasCorrection(x, baseGCMPath, baseRefPath, vars = None):
 	:return: xarray, bias corrected data
 	'''
 
-	baseGCM = openFiles(baseGCMPath)
-	baseRef = openFiles(baseRefPath)
-
-	if vars is not None:
-		baseGCM = baseGCM[vars]
-		baseRef = baseRef[vars]
+	baseGCM = openFiles(baseGCMPath, vars)
+	baseRef = openFiles(baseRefPath, vars)
 	
 	return scaleGrid(x, base = baseGCM, ref = baseRef, type = 'center', timeFrame = 'monthly', spatialFrame = 'gridbox')
 
@@ -237,7 +230,7 @@ def createDataset(pred, x, description, predictand, maskPath):
     coords = {'lon': mask.lon.values, 
                 'lat': mask.lat.values, 
                 'time': x.time.values},
-    attrs = {'description': f'{description}'}
+    attrs = description
     )
 	return pred	
 

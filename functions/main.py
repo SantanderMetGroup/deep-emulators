@@ -2,7 +2,7 @@ from buildEmulator import buildEmulator
 from emulate import emulate
 import sys
 
-## Variables
+# Variables
 # General variables
 vars = ['zg500', 'zg700',
         'hus500', 'hus700', 'hus850',
@@ -18,8 +18,8 @@ aprox = 'PP-E'
 predictorsUpscaledPath = '../../data/predictors/upscaledrcm/'
 predictorsGCMPath = '../../data/predictors/gcm/'
 predictandPath = f'../../data/predictand/{predictand}/'
-modelPath = '../../m/'
-predictionPath = '../../p/'
+modelPath = '../../m2/'
+predictionPath = '../../p2/'
 
 rcp_std = 'rcp45'
 rcp_train = 'rcp45'
@@ -47,7 +47,7 @@ def timeCombinations(time):
             break
     return combinations
 
-def filePaths(time, path, rcp):
+def filePaths(time, path, rcp, gcm, rcm, predictand):
     '''
     Generate the paths of the files to be used in the emulator
     
@@ -129,9 +129,9 @@ def descriptions(predictand):
         sys.stdout.flush()
 
 # Generate the paths of the files    
-predictorsFileTrain = filePaths(t_train, predictorsUpscaledPath, rcp_train)
-baseFile = filePaths(t_base, predictorsUpscaledPath, rcp_std)
-predictandFile = filePaths(t_train, predictandPath, rcp_train)
+predictorsFileTrain = filePaths(t_train, predictorsUpscaledPath, rcp_train, gcm, rcm, predictand)
+baseFile = filePaths(t_base, predictorsUpscaledPath, rcp_std, gcm, rcm, predictand)
+predictandFile = filePaths(t_train, predictandPath, rcp_train, gcm, rcm, predictand)
 modelFile = modelPaths(modelPath, rcp_train, t_train, predictand, aprox, gcm, rcm)
 maskFile = '../../data/land_sea_mask/lsm_ald63.nc'
 
@@ -151,35 +151,34 @@ rcp_test = 'rcp85'
 t_test = [2010, 2099]
 BiasCorrection = False
 perfect = False
-predictorsFileTest = filePaths(t_test, predictorsGCMPath, rcp_test)
+predictorsFileTest = filePaths(t_test, predictorsGCMPath, rcp_test, gcm, rcm, predictand)
+baseGCMPath = filePaths(t_test, predictorsGCMPath, rcp_test, gcm, rcm, predictand)
+baseRefPath = filePaths(t_test, predictorsUpscaledPath, rcp_test, gcm, rcm, predictand)
 
 predictionFile = predictionPaths(predictionPath, rcp_train, rcp_test, t_train, t_test, predictand, aprox, gcm, rcm, BiasCorrection, perfect)
 description = descriptions(predictand)
 
-baseGCMPath = filePaths(t_test, predictorsGCMPath, rcp_test)
-baseRefPath = filePaths(t_test, predictorsUpscaledPath, rcp_test)
-
 emulate(predictionFile, predictorsFileTest, baseFile, modelFile, maskFile, description,
-        predictand, vars, scale = True, BC = False, baseGCMPath = None, baseRefPath = None)
+        predictand, vars, scale = True, BC = BiasCorrection, baseGCMPath = baseGCMPath, baseRefPath = baseRefPath)
 
 
 from auxiliaryFunctions import openFiles 
 import numpy as np
 import matplotlib.pyplot as plt
 
-predPath = '../../p/PP-E_tas_deepesd_alp12_cnrm-ald63_train-rcp45-2080-2099_test-rcp85-2010-2099.nc'
-predPathOG = '../../pred/tas/PP-E_tas_deepesd_alp12_cnrm-ald63_train-rcp45-2080-2099_test-rcp85-2010-2099.nc'
+predPath = ['../../p2/PP-E_tas_deepesd_alp12_cnrm-ald63_train-rcp45-2080-2099_test-rcp85-2010-2099.nc']
+predPathOG = ['../../pred/tas/PP-E_tas_deepesd_alp12_cnrm-ald63_train-rcp45-2080-2099_test-rcp85-2010-2099.nc']
 
 pred = openFiles(predPath)
 predOG = openFiles(predPathOG)
 
-tasPath = ['../../data/predictand/tas/tas_cnrm-ald63_rcp85_2010-2019.nc', 
-           '../../data/predictand/tas/tas_cnrm-ald63_rcp85_2020-2029.nc']
-tas = openFiles(tasPath).sel(time = slice('2010', '2029'))
+tasPath = ['../../data/predictand/tas/tas_cnrm-ald63_rcp85_2080-2089.nc', 
+           '../../data/predictand/tas/tas_cnrm-ald63_rcp85_2090-2099.nc']
+tas = openFiles(tasPath).sel(time = slice('2080', '2099'))
 
 
-pred = pred.sel(time = slice('2010', '2029'))
-predOG = predOG.sel(time = slice('2010', '2029'))
+pred = pred.sel(time = slice('2080', '2099'))
+predOG = predOG.sel(time = slice('2080', '2099'))
 
 bias1 = np.mean(pred['tas'].values, axis = 0) - np.mean(tas['tas'].values, axis = 0)
 template = pred['tas'].mean('time')
