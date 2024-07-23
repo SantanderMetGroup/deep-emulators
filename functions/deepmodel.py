@@ -1,5 +1,3 @@
-import tensorflow as tf
-
 def deepmodel(topology, predictand, inputShape, outputShape):
 	### deepesd
 	if topology == 'deepesd' or 'noAddVal-deepesd' or 'ta-deepesd' or 'anom-deepesd':

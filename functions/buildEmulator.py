@@ -1,55 +1,76 @@
-from auxiliaryFunctions import applyMask, openFiles, scaleGrid, trainModel
-from deepmodel import deepmodel
-import numpy as np
+def buildEmulator(gcm, rcm, rcp, rcp_std, predictand, vars, type, t_train, t_std, topology, path_predictors, 
+				  path_predictand, scale = True):
+	
+	time = t_train
+	## Create the list period strings for the paths to the files
+	t_train = time_comb(t_train)
+	t_std = time_comb(t_std)
 
-def buildEmulator(predictorsPath, basePath, predictandPath, modelPath, maskPath, topology, predictand,vars, scale = True):
-	'''
-	Build the emulator
+	### Load predictor data (.nc)
+	if type == 'PP-E':
+		training_dataset = 'upscaledrcm'
+		files = [paths(gcm, rcm, rcp, type, t, training_dataset, path_predictors = path_predictors, case ='buildEmulator') for t in t_train]
+		[print("Predictor data: ", file) for file in files]
+		x = xr.open_mfdataset(files, combine='nested', concat_dim='time')
+		# same base for all datasets (rcp 45 in 2080-2099)
+		path_base = [f'./data/predictors/{training_dataset}/x_cnrm-ald63_{rcp_std}_{t}.nc' for t in t_std]
+		[print("Predictor data base: ", file) for file in path_base]
+		base = xr.open_mfdataset(path_base, combine='nested', concat_dim='time')
 
-	:param predictorsPath: str, path to the predictors data
-	:param basePath: str, path to the base data
-	:param predictandPath: str, path to the predictand data
-	:param modelPath: str, path to save the model
-	:param maskPath: str, path to the mask
-	:param topology: str, topology of the model
-	:param predictand: str, predictand
-	:param scale: boolean, scale the data
-	'''
+	elif type == 'MOS-E':
+		training_dataset = 'gcm'
+		files = [paths(gcm, rcm, rcp, type, t, training_dataset, path_predictors = path_predictors, case ='buildEmulator') for t in t_train]
+		[print("Predictor data: ", file) for file in files]
+		x = xr.open_mfdataset(files, combine='nested', concat_dim='time')
+		# same base for all datasets (rcp 45 in 2080-2099)
+		path_base = [f'./data/predictors/{training_dataset}/x_cnrm_{rcp_std}_{t}.nc' for t in t_std]
+		[print("Predictor data base: ", file) for file in path_base]
+		base = xr.open_mfdataset(path_base, combine='nested', concat_dim='time')
 
-	## Open the predictors data (.nc)
-	x = openFiles(predictorsPath)
 	if vars is not None:
 		x = x[vars]
+
+	# modelPath = paths(gcm, rcm, rcp, type, predictand= predictand, topology = topology, path_predictors = path_predictors, case ='models')
+	modelPath = f'./models/{predictand}/{topology}-{predictand}-{type}-{gcm}-{rcm}-{rcp}_{time[0]}-{time[1]}.h5'
 	
-	## Scaling..
+	### Scaling..
 	if scale:
-		base = openFiles(basePath)
 		x = scaleGrid(x, base = base, type = 'standardize', spatialFrame = 'gridbox')
 
-	## Open the predictand data (.nc)
-	y = openFiles(predictandPath)
+	### Loading predictand data (.nc)
+	files = [paths(gcm, rcm, rcp, type, t, training_dataset, predictand = predictand, path_predictand = path_predictand, case ='buildEmulator') for t in t_train]
+	y = xr.open_mfdataset(files, combine='nested', concat_dim='time')
 
-	## Intersecting the time dimension
+	## Converting xarray to a numpy array
 	ind_time = np.intersect1d(y.time.values, x.time.values)
 	x = x.sel(time = ind_time)
 	y = y.sel(time = ind_time)
-
-	## Converting xarray to a numpy array
 	x_array = x.to_stacked_array("var", sample_dims = ["lon", "lat", "time"]).values
 
-	## Mask the sea in the deepesd model
-	yTrain = applyMask(maskPath, y, x, predictand)
-	outputShape = yTrain.shape[1]
+	outputShape = None
+	### Mask the sea in the deepesd model
+	mask = xr.open_dataset('./data/land_sea_mask/lsm_ald63.nc')
+	if topology == 'deepesd':
+		mask.sftlf.values[mask.sftlf.values == 0] = np.nan
+		mask_Onedim = mask.sftlf.values.reshape((np.prod(mask.sftlf.shape)))
+		ind = [i for i, value in enumerate(mask_Onedim) if value == 1]
+		yTrain = y[predictand].values.reshape((x.dims['time'],np.prod(mask.sftlf.shape)))[:,ind]
+		outputShape = yTrain.shape[1]
 
-	## Define deep model
+	### Define deep model
 	model = deepmodel(topology = topology,
 					  predictand = predictand,
 					  inputShape = x_array.shape[1::],
 					  outputShape = outputShape)
 
-	## Train the model
-	trainModel(x = x_array, 
-			y = yTrain, 
-			model = model, 
-			modelPath= modelPath, 
-			predictand = predictand)
+	### Train the model
+	if predictand == 'tas' or predictand == 'tasmax' or predictand == 'tasmin':
+		loss = 'mse'
+
+	model.compile(loss = loss, optimizer = tf.keras.optimizers.Adam(lr = 0.0001))
+	my_callbacks = [
+		tf.keras.callbacks.EarlyStopping(patience = 30),
+		tf.keras.callbacks.ModelCheckpoint(filepath = modelPath, monitor = 'val_loss', save_best_only = True)
+	]
+	model.fit(x = x_array, y = yTrain, batch_size = 100, epochs = 10000, validation_split = 0.1, callbacks = my_callbacks)
+	print(modelPath)
